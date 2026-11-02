@@ -11,6 +11,8 @@ struct DVRPlayerView: View {
     let entry: DVR.Entry
     @StateObject private var playback = AetherRecordingController()
     @State private var showBanner = true
+    // Measured, so captions can sit above the banner while it's up.
+    @State private var bannerHeight: CGFloat = 0
     @State private var hideTask: DispatchWorkItem?
     @State private var lastScrubberDown = Date.distantPast
     @State private var lastFocusChange = Date.distantPast
@@ -31,11 +33,12 @@ struct DVRPlayerView: View {
                 .onTapGesture { interact() }
                 .ignoresSafeArea()
 
-            CaptionOverlay(text: playback.captionText)
+            CaptionOverlay(text: playback.captionText, bottomClearance: showBanner ? bannerHeight : 0)
 
             PlaybackFailureOverlay(message: playback.failure)
 
             banner
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { bannerHeight = $0 }
                 .opacity(showBanner ? 1 : 0)
                 .allowsHitTesting(showBanner)
                 .animation(.easeInOut(duration: 0.25), value: showBanner)

@@ -126,12 +126,15 @@ private struct DVRCard: View {
     let entry: DVR.Entry
     let focused: Bool
 
+    @ObservedObject private var durations = RecordingDurations.shared
+
+    // The show's slot, then how long the recording really is (see RecordingDurations).
     private var whenText: String {
-        let minutes = Int(entry.stop.timeIntervalSince(entry.start) / 60)
-        let length = minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
-        return "\(dvrDayFormatter.string(from: entry.start)) · "
+        let slot = "\(dvrDayFormatter.string(from: entry.start)) · "
             + "\(entry.start.formatted(date: .omitted, time: .shortened)) – "
-            + "\(entry.stop.formatted(date: .omitted, time: .shortened)) · \(length)"
+            + "\(entry.stop.formatted(date: .omitted, time: .shortened))"
+        guard let length = durations.lengthText(of: entry) else { return slot }
+        return slot + " · \(length)"
     }
 
     var body: some View {
@@ -160,5 +163,6 @@ private struct DVRCard: View {
         .scaleEffect(focused ? 1.02 : 1)
         .animation(.easeOut(duration: 0.15), value: focused)
         .contentShape(RoundedRectangle(cornerRadius: 16))
+        .onAppear { durations.load(entry) }
     }
 }

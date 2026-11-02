@@ -98,15 +98,18 @@ final class AetherLiveController: ObservableObject {
 
     func togglePlayPause() {
         guard let engine else { return }
+        // Assigned, not toggled: pause()/play() publish the engine state synchronously, and the
+        // state sink has already updated isPlaying by the time they return.
         if isPlaying {
             engine.pause()
             durationAtPause = duration
             pausedAt = Date()
+            isPlaying = false
         } else {
             engine.play()
             pausedAt = nil
+            isPlaying = true
         }
-        isPlaying.toggle()
     }
 
     /// `time` is in scrubber space. Debounced so a held remote direction coalesces into one seek.
@@ -237,7 +240,9 @@ final class AetherLiveController: ObservableObject {
         switch engineState {
         case .playing: isPlaying = true
         case .paused: isPlaying = false
-        case .error(let message): state = .failed(message)
+        case .error(let message):
+            state = .failed(message)
+            isPlaying = false
         default: break
         }
     }

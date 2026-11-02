@@ -2,28 +2,45 @@
 import AetherEngine
 import SwiftUI
 
+#if os(tvOS)
+private let captionFontSize: CGFloat = 44
+// The margin is in 720p video pixels; the screen is 1080 points tall.
+private let captionBottomInset: CGFloat = 60
+private let captionMarginScale: CGFloat = 1.5
+private let statsInset: CGFloat = 60
+#else
+private let captionFontSize: CGFloat = 22
+private let captionBottomInset: CGFloat = 24
+private let captionMarginScale: CGFloat = 0.5
+private let statsInset: CGFloat = 16
+#endif
+
 /// Draws the caption line the controller picked, in the style chosen in Settings. The engine hands
 /// over cue text; painting it is ours.
 struct CaptionOverlay: View {
     let text: String?
+    /// Extra room to keep clear at the bottom: the player banner's height while it's up, so the caption
+    /// sits above it instead of behind it.
+    var bottomClearance: CGFloat = 0
 
     var body: some View {
         if let text {
             VStack {
                 Spacer()
                 Text(text)
-                    .font(.system(size: 44 * CGFloat(CaptionSettings.size.scale), weight: .semibold))
+                    .font(.system(size: captionFontSize * CGFloat(CaptionSettings.size.scale), weight: .semibold))
                     .foregroundColor(CaptionSettings.textColor.color)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
                     .background(Color.black.opacity(Double(CaptionSettings.background.opacity) / 255))
                     .cornerRadius(6)
-                    // The margin is in 720p video pixels; the screen is 1080 points tall.
-                    .padding(.bottom, 60 + CGFloat(CaptionSettings.position.margin) * 1.5)
+                    .padding(.bottom, captionBottomInset + CGFloat(CaptionSettings.position.margin) * captionMarginScale
+                             + bottomClearance)
             }
             .frame(maxWidth: .infinity)
             .allowsHitTesting(false)
+            .animation(.easeInOut(duration: 0.25), value: bottomClearance)
         }
     }
 }
@@ -79,7 +96,7 @@ struct AetherStatsOverlay: View {
         .padding(20)
         .background(Color.black.opacity(0.6))
         .cornerRadius(10)
-        .padding(60)
+        .padding(statsInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .allowsHitTesting(false)
     }

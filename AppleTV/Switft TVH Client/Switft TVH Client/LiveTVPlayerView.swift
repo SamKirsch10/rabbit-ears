@@ -12,8 +12,11 @@ struct LiveTVPlayerView: View {
     @StateObject private var live = AetherLiveController()
     @State private var nowPlaying: EPGEvent?
     @State private var isRecording = false
+    @State private var confirmStop = false
     @State private var recordError: String?
     @State private var showBanner = true
+    // Measured, so captions can sit above the banner while it's up.
+    @State private var bannerHeight: CGFloat = 0
     @State private var hideTask: DispatchWorkItem?
     @State private var now = Date()
     #if DEBUG
@@ -45,7 +48,7 @@ struct LiveTVPlayerView: View {
                 #endif
                 .ignoresSafeArea()
 
-            CaptionOverlay(text: live.captionText)
+            CaptionOverlay(text: live.captionText, bottomClearance: showBanner ? bannerHeight : 0)
 
             PlaybackFailureOverlay(message: live.failure)
 
@@ -73,18 +76,23 @@ struct LiveTVPlayerView: View {
                 timeshiftOffsetSeconds: timeshiftOffsetSeconds,
                 onTogglePlayPause: { interact(); live.togglePlayPause() },
                 onToggleCaptions: { interact(); live.toggleCaptions() },
-                onRecord: { interact(); startRecording() },
+                onRecord: {
+                    interact()
+                    // While recording, the button stops it (confirmed first).
+                    if isRecording { confirmStop = true } else { startRecording() }
+                },
                 onSeek: { time in interact(); live.seek(to: time) },
                 onGoLive: { interact(); live.goLive() },
                 focus: $bannerFocus,
                 onDismiss: { hideBanner() }
             )
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { bannerHeight = $0 }
             .opacity(showBanner ? 1 : 0)
             .allowsHitTesting(showBanner)
             .animation(.easeInOut(duration: 0.25), value: showBanner)
         }
         // Focus can vanish while the banner is up (a pressed button disables itself:
-        // record, or Live once you're at the live edge). With nothing focused, Back
+        // Live once you're at the live edge). With nothing focused, Back
         // skips our handler and leaves the channel, so put focus back right away.
         .onChange(of: bannerFocus) { _, newValue in
             guard newValue == nil else { return }
@@ -106,6 +114,16 @@ struct LiveTVPlayerView: View {
         }
         .onDisappear {
             live.disconnect()
+        }
+        .alert(nowPlaying?.recordingMark == .scheduled ? "Cancel recording?" : "Stop recording?",
+               isPresented: $confirmStop) {
+            Button(nowPlaying?.recordingMark == .scheduled ? "Cancel Recording" : "Stop Recording",
+                   role: .destructive) { stopRecording() }
+            Button("Keep Recording", role: .cancel) {}
+        } message: {
+            Text(nowPlaying?.recordingMark == .scheduled
+                 ? "\"\(nowPlaying?.title ?? channel.name)\" won't be recorded."
+                 : "\"\(nowPlaying?.title ?? channel.name)\" stops recording now. What's been recorded so far is kept.")
         }
         .onReceive(clock) { date in
             now = date
@@ -162,6 +180,8 @@ struct LiveTVPlayerView: View {
         TVHClient.sharedInstance.fetchNowPlaying(channel: channel) { result in
             if case .success(let event) = result {
                 nowPlaying = event
+                // Already recording (or about to): the record button starts out as a stop button.
+                isRecording = event?.recordingMark != nil
             }
         }
     }
@@ -173,6 +193,26 @@ struct LiveTVPlayerView: View {
             switch result {
             case .success:
                 isRecording = true
+                // Picks up the new entry's uuid, which stopping it needs.
+                loadNowPlaying()
+            case .failure(let error):
+                recordError = error.localizedDescription
+            }
+        }
+    }
+
+    private func stopRecording() {
+        guard let nowPlaying, let uuid = nowPlaying.dvrUuid else {
+            recordError = "Couldn't find this recording on the server."
+            loadNowPlaying()
+            return
+        }
+        recordError = nil
+        TVHClient.sharedInstance.stopRecording(uuid: uuid, isRunning: nowPlaying.recordingMark == .recording) { result in
+            switch result {
+            case .success:
+                isRecording = false
+                loadNowPlaying()
             case .failure(let error):
                 recordError = error.localizedDescription
             }
@@ -318,13 +358,13 @@ private struct PlaybackBanner: View {
                     .focused(focus, equals: .captions)
 
                     Button(action: onRecord) {
-                        Image(systemName: isRecording ? "record.circle.fill" : "record.circle")
+                        Image(systemName: isRecording ? "stop.circle.fill" : "record.circle")
                             .font(.title2)
                             .frame(width: 60, height: 60)
                     }
                     .buttonStyle(BannerButtonStyle(tint: isRecording ? .red : nil))
                     .focused(focus, equals: .record)
-                    .disabled(isRecording || nowPlaying == nil)
+                    .disabled(nowPlaying == nil)
                 }
                 .focusSection()
             }

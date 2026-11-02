@@ -9,16 +9,44 @@
 /* Begin PBXBuildFile section */
 		167DFAC63092CBB600B894BB /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 167DFAC53092CBB600B894BB /* Alamofire */; };
 		167DFAE23092CBB600B894BB /* AetherEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 167DFAE13092CBB600B894BB /* AetherEngine */; };
+		84C92AECD5244101A92D305F /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 6B1CD2FDF2F84D28A6A2B2B1 /* Alamofire */; };
+		C2B31CD9A8E3473DB59ECA21 /* AetherEngine in Frameworks */ = {isa = PBXBuildFile; productRef = B5CE0E7959F1454F9FC20FAC /* AetherEngine */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		167DFAB03092CB5400B894BB /* Switft TVH Client.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Switft TVH Client.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BFC707A771F046F7929CCEDC /* Switft TVH Client.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Switft TVH Client.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AA3B8C64AF13458CA1E8C4D7 /* Exceptions for "iOS" folder in "Switft TVH Client iOS" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 1A534A8DCEB94D7D9CAFBB9E /* Switft TVH Client iOS */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		0F4B66035F234B269C51D1D5 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = Shared;
+			path = ../../Shared;
+			sourceTree = "<group>";
+		};
 		167DFAB23092CB5400B894BB /* Switft TVH Client */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Switft TVH Client";
+			sourceTree = "<group>";
+		};
+		9E5D5B02D6424911AFADD3DE /* iOS */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA3B8C64AF13458CA1E8C4D7 /* Exceptions for "iOS" folder in "Switft TVH Client iOS" target */,
+			);
+			name = iOS;
+			path = ../../iOS;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -31,13 +59,22 @@
 				167DFAE23092CBB600B894BB /* AetherEngine in Frameworks */,
 			);
 		};
+		A28AA0DC23ED460A8EE6253F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				84C92AECD5244101A92D305F /* Alamofire in Frameworks */,
+				C2B31CD9A8E3473DB59ECA21 /* AetherEngine in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		167DFAA73092CB5400B894BB = {
 			isa = PBXGroup;
 			children = (
+				0F4B66035F234B269C51D1D5 /* Shared */,
 				167DFAB23092CB5400B894BB /* Switft TVH Client */,
+				9E5D5B02D6424911AFADD3DE /* iOS */,
 				167DFAB13092CB5400B894BB /* Products */,
 			);
 			sourceTree = "<group>";
@@ -46,6 +83,7 @@
 			isa = PBXGroup;
 			children = (
 				167DFAB03092CB5400B894BB /* Switft TVH Client.app */,
+				BFC707A771F046F7929CCEDC /* Switft TVH Client.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,6 +102,7 @@
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
+				0F4B66035F234B269C51D1D5 /* Shared */,
 				167DFAB23092CB5400B894BB /* Switft TVH Client */,
 			);
 			name = "Switft TVH Client";
@@ -73,6 +112,29 @@
 			);
 			productName = "Switft TVH Client";
 			productReference = 167DFAB03092CB5400B894BB /* Switft TVH Client.app */;
+			productType = "com.apple.product-type.application";
+		};
+		1A534A8DCEB94D7D9CAFBB9E /* Switft TVH Client iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3C4B77BA2ACB4730B9AB8A5A /* Build configuration list for PBXNativeTarget "Switft TVH Client iOS" */;
+			buildPhases = (
+				1A03AA3AAA784C7EB4D1F4FE /* Sources */,
+				A28AA0DC23ED460A8EE6253F /* Frameworks */,
+				E5E93A50B1DF4D96B6E2A927 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				0F4B66035F234B269C51D1D5 /* Shared */,
+				9E5D5B02D6424911AFADD3DE /* iOS */,
+			);
+			name = "Switft TVH Client iOS";
+			packageProductDependencies = (
+				6B1CD2FDF2F84D28A6A2B2B1 /* Alamofire */,
+				B5CE0E7959F1454F9FC20FAC /* AetherEngine */,
+			);
+			productName = "Switft TVH Client";
+			productReference = BFC707A771F046F7929CCEDC /* Switft TVH Client.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -86,6 +148,9 @@
 				LastUpgradeCheck = 2710;
 				TargetAttributes = {
 					167DFAAF3092CB5400B894BB = {
+						CreatedOnToolsVersion = 27.1;
+					};
+					1A534A8DCEB94D7D9CAFBB9E = {
 						CreatedOnToolsVersion = 27.1;
 					};
 				};
@@ -109,6 +174,7 @@
 			projectRoot = "";
 			targets = (
 				167DFAAF3092CB5400B894BB /* Switft TVH Client */,
+				1A534A8DCEB94D7D9CAFBB9E /* Switft TVH Client iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -119,10 +185,20 @@
 			files = (
 			);
 		};
+		E5E93A50B1DF4D96B6E2A927 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		167DFAAC3092CB5400B894BB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		1A03AA3AAA784C7EB4D1F4FE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 			);
@@ -311,6 +387,76 @@
 			};
 			name = Release;
 		};
+		D5E6F0B1806241208D048D07 /* Debug configuration for PBXNativeTarget "Switft TVH Client iOS" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SUAR2Y8CJ4;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ../../iOS/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.Switft-TVH-Client";
+				PRODUCT_NAME = "Switft TVH Client";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B1767D3B866B459E8F3344CC /* Release configuration for PBXNativeTarget "Switft TVH Client iOS" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SUAR2Y8CJ4;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ../../iOS/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.Switft-TVH-Client";
+				PRODUCT_NAME = "Switft TVH Client";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -327,6 +473,14 @@
 			buildConfigurations = (
 				167DFABC3092CB5500B894BB /* Debug configuration for PBXNativeTarget "Switft TVH Client" */,
 				167DFABD3092CB5500B894BB /* Release configuration for PBXNativeTarget "Switft TVH Client" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		3C4B77BA2ACB4730B9AB8A5A /* Build configuration list for PBXNativeTarget "Switft TVH Client iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D5E6F0B1806241208D048D07 /* Debug configuration for PBXNativeTarget "Switft TVH Client iOS" */,
+				B1767D3B866B459E8F3344CC /* Release configuration for PBXNativeTarget "Switft TVH Client iOS" */,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -358,6 +512,16 @@
 			productName = Alamofire;
 		};
 		167DFAE13092CBB600B894BB /* AetherEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 167DFAE03092CBB600B894BB /* XCRemoteSwiftPackageReference "AetherEngine" */;
+			productName = AetherEngine;
+		};
+		6B1CD2FDF2F84D28A6A2B2B1 /* Alamofire */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 167DFAC43092CBB600B894BB /* XCRemoteSwiftPackageReference "Alamofire" */;
+			productName = Alamofire;
+		};
+		B5CE0E7959F1454F9FC20FAC /* AetherEngine */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 167DFAE03092CBB600B894BB /* XCRemoteSwiftPackageReference "AetherEngine" */;
 			productName = AetherEngine;

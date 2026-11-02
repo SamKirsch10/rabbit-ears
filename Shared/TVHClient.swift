@@ -244,6 +244,29 @@ class TVHClient {
             }
     }
 
+    /// Stops a recording in progress, keeping what has been recorded so far, or cancels one that is only
+    /// scheduled.
+    func stopRecording(uuid: String, isRunning: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let baseURL,
+              var components = URLComponents(
+                url: baseURL.appendingPathComponent(isRunning ? "/api/dvr/entry/stop" : "/api/dvr/entry/cancel"),
+                resolvingAgainstBaseURL: false
+              ) else {
+            completion(.failure(TVHClientError.notConfigured))
+            return
+        }
+        components.queryItems = [URLQueryItem(name: "uuid", value: uuid)]
+        guard let url = components.url else {
+            completion(.failure(TVHClientError.notConfigured))
+            return
+        }
+        request(url)
+            .validate()
+            .response { response in
+                completion(response.result.map { _ in () }.mapError { $0 as Error })
+            }
+    }
+
     /// Deletes a recording (and its file); for an upcoming entry this cancels it.
     func deleteRecording(uuid: String, completion: @escaping (Result<Void, Error>) -> Void) {
         guard let baseURL,
@@ -395,6 +418,11 @@ nonisolated struct EPGEvent: Decodable, Identifiable, Sendable {
     let imagePath: String?
     let start: Date
     let stop: Date
+    /// tvheadend's state for a DVR entry made from this event ("scheduled", "recording",
+    /// "completed", ...), nil when there is none.
+    let dvrState: String?
+    /// The DVR entry made from this event, if any; what stopping or cancelling it needs.
+    let dvrUuid: String?
 
     private enum CodingKeys: String, CodingKey {
         case id = "eventId"
@@ -406,6 +434,8 @@ nonisolated struct EPGEvent: Decodable, Identifiable, Sendable {
         case imagePath = "image"
         case start
         case stop
+        case dvrState
+        case dvrUuid
     }
 
     init(from decoder: Decoder) throws {
@@ -417,10 +447,27 @@ nonisolated struct EPGEvent: Decodable, Identifiable, Sendable {
         summary = try? container.decode(String.self, forKey: .summary)
         description = try? container.decode(String.self, forKey: .description)
         imagePath = try? container.decode(String.self, forKey: .imagePath)
+        dvrState = try? container.decode(String.self, forKey: .dvrState)
+        dvrUuid = try? container.decode(String.self, forKey: .dvrUuid)
         let startEpoch = try container.decode(TimeInterval.self, forKey: .start)
         let stopEpoch = try container.decode(TimeInterval.self, forKey: .stop)
         start = Date(timeIntervalSince1970: startEpoch)
         stop = Date(timeIntervalSince1970: stopEpoch)
+    }
+}
+
+enum RecordingMark {
+    case scheduled, recording
+}
+
+extension EPGEvent {
+    /// Whether this program is set to record or recording now; finished or failed entries don't count.
+    var recordingMark: RecordingMark? {
+        switch dvrState {
+        case "recording": return .recording
+        case "scheduled": return .scheduled
+        default: return nil
+        }
     }
 }
 
@@ -431,6 +478,11 @@ nonisolated struct DVR: Decodable {
         let description: String
         let start: Date
         let stop: Date
+        /// The EPG event this entry was made from, if any.
+        let broadcast: Int?
+        /// "scheduled", "recording", "completed", "completedError", ...
+        let schedStatus: String?
+        let filesize: Int64?
 
         private enum CodingKeys: String, CodingKey {
             case id = "uuid"
@@ -438,6 +490,9 @@ nonisolated struct DVR: Decodable {
             case description = "disp_description"
             case start
             case stop
+            case broadcast
+            case schedStatus = "sched_status"
+            case filesize
         }
 
         init(from decoder: Decoder) throws {
@@ -445,10 +500,16 @@ nonisolated struct DVR: Decodable {
             id = try container.decode(String.self, forKey: .id)
             title = try container.decode(String.self, forKey: .title)
             description = (try? container.decode(String.self, forKey: .description)) ?? ""
+            broadcast = try? container.decode(Int.self, forKey: .broadcast)
+            schedStatus = try? container.decode(String.self, forKey: .schedStatus)
+            filesize = try? container.decode(Int64.self, forKey: .filesize)
             let startEpoch = try container.decode(TimeInterval.self, forKey: .start)
             let stopEpoch = try container.decode(TimeInterval.self, forKey: .stop)
             start = Date(timeIntervalSince1970: startEpoch)
             stop = Date(timeIntervalSince1970: stopEpoch)
         }
+
+        /// Done recording, successfully or not; the file no longer grows.
+        var isFinished: Bool { schedStatus?.hasPrefix("completed") == true }
     }
 }

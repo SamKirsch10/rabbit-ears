@@ -9,20 +9,8 @@ private let guideTimeFormatter: DateFormatter = {
     return formatter
 }()
 
-let guideAccent = Color(red: 0.33, green: 0.56, blue: 1.0)
 private let guideCellRadius: CGFloat = 12
 private let guideCellHeight: CGFloat = 84
-
-private struct GuideSegment: Identifiable {
-    let title: String
-    let start: Date // clipped to the visible window
-    let stop: Date
-    let event: EPGEvent?
-
-    var hasEvent: Bool { event != nil }
-    var id: String { "\(start.timeIntervalSince1970)-\(stop.timeIntervalSince1970)" }
-    var duration: TimeInterval { stop.timeIntervalSince(start) }
-}
 
 struct GuideView: View {
     @ObservedObject var filter: GuideFilter
@@ -289,37 +277,7 @@ struct GuideView: View {
     }
 
     private func segments(for channel: Channel) -> [GuideSegment] {
-        let channelEvents = (eventsByChannel[channel.id] ?? [])
-            .filter { $0.start < windowEnd && $0.stop > windowStart }
-            .sorted { $0.start < $1.start }
-
-        // Gaps shorter than this are rounding noise in broadcast EPG data (a show
-        // starting a few seconds after the half hour). Rendering them makes a
-        // sliver of a focusable "No Data" cell, so the neighbouring program is
-        // stretched across them instead.
-        let minGap: TimeInterval = 120
-
-        var result: [GuideSegment] = []
-        var cursor = windowStart
-        for event in channelEvents {
-            var clippedStart = max(event.start, windowStart)
-            let clippedStop = min(event.stop, windowEnd)
-            let gap = clippedStart.timeIntervalSince(cursor)
-            if gap >= minGap {
-                result.append(GuideSegment(title: "No Data", start: cursor, stop: clippedStart, event: nil))
-            } else if gap > 0 {
-                clippedStart = cursor
-            }
-            result.append(GuideSegment(title: event.title, start: clippedStart, stop: clippedStop, event: event))
-            cursor = clippedStop
-        }
-        let tail = windowEnd.timeIntervalSince(cursor)
-        if tail >= minGap {
-            result.append(GuideSegment(title: "No Data", start: cursor, stop: windowEnd, event: nil))
-        } else if tail > 0, let last = result.last {
-            result[result.count - 1] = GuideSegment(title: last.title, start: last.start, stop: windowEnd, event: last.event)
-        }
-        return result
+        guideSegments(for: eventsByChannel[channel.id] ?? [], from: windowStart, to: windowEnd)
     }
 
     private func updateHero(for cellID: String?) {
@@ -426,6 +384,10 @@ private struct GuideHero: View {
                             .padding(.vertical, 3)
                             .background(Capsule().fill(status.color))
                             .foregroundColor(.white)
+                    }
+                    if let mark = event?.recordingMark {
+                        RecordingBadge(mark: mark)
+                            .font(.caption.weight(.bold))
                     }
                 }
 
@@ -628,6 +590,13 @@ private struct SegmentLabel: View {
             }
         }
         .frame(width: width, height: guideCellHeight)
+        .overlay(alignment: .topTrailing) {
+            if let mark = segment.event?.recordingMark, width > 40 {
+                RecordingIcon(mark: mark)
+                    .font(.callout)
+                    .padding(10)
+            }
+        }
         .overlay(
             RoundedRectangle(cornerRadius: guideCellRadius)
                 .strokeBorder(highlighted ? guideAccent : Color.white.opacity(segment.hasEvent ? 0.1 : 0.05),

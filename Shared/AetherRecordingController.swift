@@ -65,8 +65,14 @@ final class AetherRecordingController: ObservableObject {
             load(startPosition: 0)
             return
         }
-        if isPlaying { engine.pause() } else { engine.play() }
-        isPlaying.toggle()
+        // Assigned, not toggled: the engine's state sink has already updated isPlaying by now.
+        if isPlaying {
+            engine.pause()
+            isPlaying = false
+        } else {
+            engine.play()
+            isPlaying = true
+        }
     }
 
     /// Debounced so a held remote direction coalesces into one seek.
@@ -137,7 +143,9 @@ final class AetherRecordingController: ObservableObject {
         switch engineState {
         case .playing: isPlaying = true
         case .paused, .ended: isPlaying = false
-        case .error(let message): failure = message
+        case .error(let message):
+            failure = message
+            isPlaying = false
         default: break
         }
     }
