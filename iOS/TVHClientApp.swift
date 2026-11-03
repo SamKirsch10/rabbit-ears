@@ -25,7 +25,7 @@ struct ContentView: View {
                 Tab("Guide", systemImage: "square.grid.3x3.topleft.filled") {
                     NavigationStack { GuideView(filter: filter) }
                 }
-                Tab("Recordings", systemImage: "recordingtape") {
+                Tab("DVR", systemImage: "recordingtape") {
                     NavigationStack { RecordingsView() }
                 }
             }

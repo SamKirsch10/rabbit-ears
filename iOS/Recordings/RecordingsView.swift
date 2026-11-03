@@ -45,7 +45,7 @@ struct RecordingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(guideBackground.ignoresSafeArea())
         .refreshable { await load() }
-        .navigationTitle("Recordings")
+        .navigationTitle("DVR")
         .fullScreenCover(item: $playing) { entry in
             RecordingPlayerView(entry: entry)
         }
