@@ -390,6 +390,7 @@
 		D5E6F0B1806241208D048D07 /* Debug configuration for PBXNativeTarget "Switft TVH Client iOS" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = SUAR2Y8CJ4;
@@ -425,6 +426,7 @@
 		B1767D3B866B459E8F3344CC /* Release configuration for PBXNativeTarget "Switft TVH Client iOS" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = SUAR2Y8CJ4;
