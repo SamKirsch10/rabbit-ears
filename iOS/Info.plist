@@ -11,5 +11,10 @@
     </dict>
     <key>NSLocalNetworkUsageDescription</key>
     <string>TVHeadend Client connects to your TVHeadend server on the local network to show channels and play live TV.</string>
+    <!-- Picture in picture keeps playing after the app is backgrounded, video and audio alike. -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>
+    </array>
 </dict>
 </plist>

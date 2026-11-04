@@ -10,6 +10,7 @@ struct RecordingPlayerView: View {
 
     let entry: DVR.Entry
     @StateObject private var playback = AetherRecordingController()
+    @StateObject private var pip = PictureInPicture()
     @State private var showControls = true
     // Measured, so captions can sit above the banner while it's up.
     @State private var bannerHeight: CGFloat = 0
@@ -50,12 +51,14 @@ struct RecordingPlayerView: View {
         .onAppear {
             // Nothing else keeps the screen awake: the picture is a sample-buffer layer, not an AVPlayer.
             UIApplication.shared.isIdleTimerDisabled = true
+            if let engine = playback.engine { pip.bind(engine) }
             playback.connect(entry: entry)
             scheduleHide()
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             hideTask?.cancel()
+            pip.unbind()
             playback.disconnect()
         }
         .onChange(of: playback.isPlaying) { _, _ in scheduleHide() }
@@ -110,6 +113,11 @@ struct RecordingPlayerView: View {
                     .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(2)
             }
+            if let pipFailure = pip.failure {
+                Text(pipFailure)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
         }
     }
 
@@ -132,6 +140,15 @@ struct RecordingPlayerView: View {
             }
             .buttonStyle(PlayerIconButtonStyle())
             .accessibilityLabel("Forward 30 seconds")
+
+            // PiP keeps the recording playing once the app is backgrounded; AVKit also starts it on
+            // its own when you leave the app.
+            Button { interact(); pip.toggle() } label: {
+                Image(systemName: pip.isActive ? "pip.exit" : "pip.enter")
+            }
+            .buttonStyle(PlayerIconButtonStyle(tint: pip.isActive ? guideAccent : nil))
+            .disabled(!pip.hasSource)
+            .accessibilityLabel(pip.isActive ? "Stop picture in picture" : "Start picture in picture")
 
             Button { interact(); playback.toggleCaptions() } label: {
                 Image(systemName: playback.captionsOn ? "captions.bubble.fill" : "captions.bubble")
