@@ -45,6 +45,11 @@ struct RecordingPlayerView: View {
                 .transition(.opacity)
             }
         }
+        .overlay(alignment: .topTrailing) {
+            if showControls {
+                playerPiPCorner(pip) { interact(); pip.toggle() }
+            }
+        }
         .animation(.easeInOut(duration: 0.25), value: showControls)
         .statusBarHidden(!showControls)
         .persistentSystemOverlays(showControls ? .automatic : .hidden)
@@ -113,11 +118,6 @@ struct RecordingPlayerView: View {
                     .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(2)
             }
-            if let pipFailure = pip.failure {
-                Text(pipFailure)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
         }
     }
 
@@ -140,15 +140,6 @@ struct RecordingPlayerView: View {
             }
             .buttonStyle(PlayerIconButtonStyle())
             .accessibilityLabel("Forward 30 seconds")
-
-            // PiP keeps the recording playing once the app is backgrounded; AVKit also starts it on
-            // its own when you leave the app.
-            Button { interact(); pip.toggle() } label: {
-                Image(systemName: pip.isActive ? "pip.exit" : "pip.enter")
-            }
-            .buttonStyle(PlayerIconButtonStyle(tint: pip.isActive ? guideAccent : nil))
-            .disabled(!pip.hasSource)
-            .accessibilityLabel(pip.isActive ? "Stop picture in picture" : "Start picture in picture")
 
             Button { interact(); playback.toggleCaptions() } label: {
                 Image(systemName: playback.captionsOn ? "captions.bubble.fill" : "captions.bubble")

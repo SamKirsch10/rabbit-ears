@@ -176,6 +176,41 @@ final class PictureInPicture: NSObject, ObservableObject {
         controller?.invalidatePlaybackState()
     }
 
+    // MARK: timeline arithmetic
+
+    /// The window's playable range, on the axis its frames are timestamped on — the source axis,
+    /// where `sourceTime` is `currentTime` plus the session's zero point.
+    ///
+    /// AVKit reads an infinite duration as live content and gives the window a stop button, because
+    /// it assumes live content cannot be paused; tapping that button ended the feed instead of
+    /// pausing it. This app's live TV has the engine's client-side DVR window, which its own banner
+    /// pauses and rewinds through, so the window is handed that span and gets a pause button. Nil
+    /// means there is no DVR window to report, and the caller falls back to the engine's answer
+    /// (live-only content, or a recording's finite range).
+    ///
+    /// AVKit also requires a finite range to contain the layer's current time, so the window is
+    /// widened to the playhead rather than clipped by it.
+    static func windowTimeRange(sourceTime: Double, currentTime: Double,
+                                liveWindow: ClosedRange<Double>?) -> CMTimeRange? {
+        guard let liveWindow else { return nil }
+        let lower = min(liveWindow.lowerBound, currentTime)
+        let upper = max(liveWindow.upperBound, currentTime)
+        guard upper > lower else { return nil }
+        let origin = sourceTime - currentTime
+        return CMTimeRange(start: CMTime(seconds: origin + lower, preferredTimescale: 600),
+                           duration: CMTime(seconds: upper - lower, preferredTimescale: 600))
+    }
+
+    /// Where a skip lands: clamped into the DVR window, with the live edge rejoined rather than a
+    /// seek past it. The 3s margin is the banner's own near-live rule.
+    static func skipTarget(currentTime: Double, by seconds: Double,
+                           liveWindow: ClosedRange<Double>?) -> (time: Double, atLiveEdge: Bool) {
+        guard let liveWindow else { return (max(0, currentTime + seconds), false) }
+        let target = currentTime + seconds
+        if target >= liveWindow.upperBound - 3 { return (liveWindow.upperBound, true) }
+        return (max(target, liveWindow.lowerBound), false)
+    }
+
     // AVKit calls the delegate on the main thread; `MainActor.assumeIsolated` says so to the
     // compiler instead of bouncing every answer through another queue.
     private func onMain<T>(_ body: () -> T) -> T {
@@ -222,10 +257,19 @@ extension PictureInPicture: AVPictureInPictureControllerDelegate {
 // MARK: AVPictureInPictureSampleBufferPlaybackDelegate
 
 extension PictureInPicture: AVPictureInPictureSampleBufferPlaybackDelegate {
-    /// Live content answers an indefinite range, which is what makes the window show live UI. No
-    /// content at all is `.invalid`, so AVKit shows nothing rather than a stuck scrubber.
+    /// The DVR window for live sessions (see `windowTimeRange`); the engine's own answer for
+    /// everything else. No content at all is `.invalid`, so AVKit shows nothing rather than a stuck
+    /// scrubber.
     func pictureInPictureControllerTimeRangeForPlayback(_ pictureInPictureController: AVPictureInPictureController) -> CMTimeRange {
-        onMain { source?.timeRange() ?? CMTimeRange.invalid }
+        onMain {
+            guard let source else { return CMTimeRange.invalid }
+            guard let engine,
+                  let range = Self.windowTimeRange(sourceTime: engine.sourceTime,
+                                                   currentTime: engine.currentTime,
+                                                   liveWindow: engine.seekableLiveRange)
+            else { return source.timeRange() }
+            return range
+        }
     }
 
     func pictureInPictureControllerIsPlaybackPaused(_ pictureInPictureController: AVPictureInPictureController) -> Bool {
@@ -255,9 +299,16 @@ extension PictureInPicture: AVPictureInPictureSampleBufferPlaybackDelegate {
                 completion()
                 return
             }
-            let target = max(0, engine.currentTime + CMTimeGetSeconds(skipInterval))
+            // A seek while paused renders nothing until the session resumes, as on the banner.
+            let wasPaused = engine.state == .paused
+            let (target, atLiveEdge) = Self.skipTarget(currentTime: engine.currentTime,
+                                                       by: CMTimeGetSeconds(skipInterval),
+                                                       liveWindow: engine.seekableLiveRange)
             Task {
-                await engine.seek(to: target)
+                if atLiveEdge { await engine.seekToLiveEdge() } else { await engine.seek(to: target) }
+                if wasPaused { engine.play() }
+                // The playhead moved and possibly resumed; AVKit caches both answers until asked.
+                invalidatePlaybackState()
                 completion()
             }
         }

@@ -33,4 +33,34 @@ extension View {
             .ignoresSafeArea()
         }
     }
+
+    /// The PiP toggle, in the top-right corner rather than the banner, which is already full of
+    /// buttons. It rides the banner's visibility, so the tap that hides the chrome hides it too.
+    func playerPiPCorner(_ pip: PictureInPicture, onToggle: @escaping () -> Void) -> some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            Button { onToggle() } label: {
+                Image(systemName: pip.isActive ? "pip.exit" : "pip.enter")
+            }
+            .buttonStyle(PlayerIconButtonStyle(tint: pip.isActive ? guideAccent : nil))
+            .disabled(!pip.hasSource)
+            .accessibilityLabel(pip.isActive ? "Stop picture in picture" : "Start picture in picture")
+
+            // Why the button is dim, or why a start failed. It is not interactive, so it must not
+            // swallow the tap that reaches the video.
+            if let failure = pip.failure {
+                Text(failure)
+                    .font(.caption2)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.black.opacity(0.6))
+                    .cornerRadius(6)
+                    .lineLimit(2)
+                    .allowsHitTesting(false)
+            }
+        }
+        .padding(.top, 10)
+        .padding(.trailing, 16)
+        .transition(.opacity)
+    }
 }
