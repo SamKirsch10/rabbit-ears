@@ -18,7 +18,24 @@ struct DVRPlayerView: View {
     @State private var lastFocusChange = Date.distantPast
     @FocusState private var focus: BannerFocus?
 
+    /// The banner's horizontal inset. The still overlay has to match it: `ScrubberBar` places its dot
+    /// as a fraction of its own width, and the still aligns to that dot by taking the same width.
+    private static let bannerInset: CGFloat = 48
+    /// Gap between the banner's top edge and the still, which floats over the video instead of taking
+    /// a row in the banner.
+    private static let stillGap: CGFloat = 18
+    /// What the still occupies above the banner. Captions clear it only while a scrub still is actually
+    /// on screen: a banner with no still must not push caption lines up the screen.
+    private var stillClearance: CGFloat {
+        playback.thumbnails == nil || !playback.isScrubbing
+            ? 0 : ScrubStillCell.size.height + Self.stillGap
+    }
+
     var body: some View {
+        // The still is a scrub preview, not banner chrome: it is up while a scrub is on screen, and
+        // only while the banner itself is up.
+        let showsStill = showBanner && playback.isScrubbing
+
         ZStack(alignment: .bottom) {
             if let engine = playback.engine {
                 AetherPlayerSurface(engine: engine)
@@ -33,7 +50,8 @@ struct DVRPlayerView: View {
                 .onTapGesture { interact() }
                 .ignoresSafeArea()
 
-            CaptionOverlay(text: playback.captionText, bottomClearance: showBanner ? bannerHeight : 0)
+            CaptionOverlay(text: playback.captionText,
+                           bottomClearance: showBanner ? bannerHeight + stillClearance : 0)
 
             PlaybackFailureOverlay(message: playback.failure)
 
@@ -42,6 +60,23 @@ struct DVRPlayerView: View {
                 .opacity(showBanner ? 1 : 0)
                 .allowsHitTesting(showBanner)
                 .animation(.easeInOut(duration: 0.25), value: showBanner)
+
+            // The still floats over the video above the banner rather than taking a banner row: it is
+            // a preview of where the playhead is, not a control, and laying it out would push the
+            // controls up the screen every time it appears.
+            if let provider = playback.thumbnails {
+                ScrubStillView(provider: provider,
+                               currentTime: playback.currentTime,
+                               stillTime: playback.stillTime,
+                               duration: playback.duration,
+                               isActive: showsStill)
+                    .padding(.horizontal, Self.bannerInset)
+                    .padding(.bottom, bannerHeight + Self.stillGap)
+                    .opacity(showsStill ? 1 : 0)
+                    .allowsHitTesting(false)
+                    .animation(.easeInOut(duration: 0.25), value: showsStill)
+                    .animation(.easeInOut(duration: 0.25), value: showBanner)
+            }
         }
         .onPlayPauseCommand { interact(); playback.togglePlayPause() }
         // Keep something focused so Back always reaches our handler (see LiveTVPlayerView).
@@ -122,7 +157,7 @@ struct DVRPlayerView: View {
                 .focused($focus, equals: .captions)
             }
         }
-        .padding(.horizontal, 48)
+        .padding(.horizontal, Self.bannerInset)
         .padding(.vertical, 28)
         .background(alignment: .bottom) {
             LinearGradient(
