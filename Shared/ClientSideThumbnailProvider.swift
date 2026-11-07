@@ -144,11 +144,23 @@ public final class ClientSideThumbnailProvider: ObservableObject {
     /// costs nothing. A nil retries after `retryDelay` and then aims at whatever position is newest
     /// then, so a starved pipeline is not hammered and a mid-retry press is picked up not dropped.
     private func pumpStills(generation: UInt64) async {
+        // Warm the context once per pump, before the first decode. The pump starts at scrub entry, and
+        // after `idleInterval` (10 s) the extractor has closed its context and dropped its cache
+        // (`scheduleIdleClose`), so the first miss of a scrub pays a demuxer reopen. `produce` yields
+        // *before* it opens (`FrameExtractor.swift:314`, then `:327`), so opening here puts that reopen
+        // inside the starved window a fresh seek already holds the pipeline in, and the decode that
+        // finally gets through pays only decode time. It sits below the guards, so a pump with nothing
+        // to decode never pulls bytes for nothing.
+        var warmed = false
         while !Task.isCancelled {
             guard generation == self.generation, let target = self.target else { break }
             // A newer pump owns the extractor's decode token if one was started, so this pump stops
             // serving as soon as its generation is superseded.
             if let served, abs(target - served) < Self.quantum { break }
+            if !warmed {
+                warmed = true
+                await extractor.prewarm()
+            }
             if let image = await decode(at: target) {
                 publish(image, at: target)
                 EngineLog.emit("[ScrubStill] still t=\(String(format: "%.1f", target))s "
@@ -185,14 +197,21 @@ public final class ClientSideThumbnailProvider: ObservableObject {
 
     /// A cheap fingerprint of the decoded pixels, so a run of identical stills is visible in the log
     /// rather than guessed from what the screen looks like.
+    ///
+    /// A sample, not a scan: a still is ~249 KB and this runs on every publish, so walking every byte
+    /// was the most expensive thing a publish did. Every 64th byte (~3900 samples) still tells two
+    /// frames apart; the byte count is folded into the seed so differing buffer sizes never collide. If
+    /// two positions ever report the same hash, shorten the stride rather than go back to a full scan.
     private static func hash(of image: UIImage) -> String {
         guard let cgImage = image.cgImage,
               let data = cgImage.dataProvider?.data,
               let ptr = CFDataGetBytePtr(data) else { return "n/a" }
-        var hash: UInt64 = 0xcbf29ce484222325
-        let bytes = UnsafeBufferPointer<UInt8>(start: ptr, count: CFDataGetLength(data))
-        for byte in bytes {
-            hash = (hash ^ UInt64(byte)) &* 0x100000001b3
+        let length = CFDataGetLength(data)
+        var hash: UInt64 = 0xcbf29ce484222325 ^ UInt64(length)
+        var offset = 0
+        while offset < length {
+            hash = (hash ^ UInt64(ptr[offset])) &* 0x100000001b3
+            offset += 64
         }
         return String(hash, radix: 16)
     }

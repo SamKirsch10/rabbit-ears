@@ -126,6 +126,7 @@ final class AetherRecordingController: ObservableObject {
         stillProbeCancellation?.cancel()
         stillProbeCancellation = nil
         stillSourceOffset = nil
+        heldSessionZero = nil
         currentTime = 0
         engineTime = 0
         stillTime = 0
@@ -158,10 +159,13 @@ final class AetherRecordingController: ObservableObject {
     /// Debounced so a held remote direction coalesces into one seek.
     func seek(to time: TimeInterval) {
         pendingSeekWork?.cancel()
-        currentTime = time
+        // Assigned only when the value moved. Every one of these is @Published, and the clock tick
+        // calls `refreshScrubState` ~4 Hz, so writing a value that already equals the current one
+        // re-renders `DVRPlayerView` for nothing.
+        if currentTime != time { currentTime = time }
         // Nothing has landed yet, so the still follows the press rather than the stale clock.
-        stillTime = time
-        isScrubbing = true
+        if stillTime != time { stillTime = time }
+        if !isScrubbing { isScrubbing = true }
         // Visible while presses are hot; the landing extends it (see `landedStillTail`).
         holdDisplayUntil = Date().addingTimeInterval(Self.previewWindow)
         let work = DispatchWorkItem { [weak self] in self?.performSeek(to: time) }
@@ -174,8 +178,10 @@ final class AetherRecordingController: ObservableObject {
     /// landing, so the hand-off happens on the value the landing publishes. Visibility is a separate
     /// question: the still stays up while presses are hot and for a short tail after a landing.
     private func refreshScrubState() {
-        isScrubbing = Date() < holdDisplayUntil || pendingSeekWork != nil
-        stillTime = previewHot ? currentTime : engineTime
+        let scrubbing = Date() < holdDisplayUntil || pendingSeekWork != nil
+        if scrubbing != isScrubbing { isScrubbing = scrubbing }
+        let described = previewHot ? currentTime : engineTime
+        if described != stillTime { stillTime = described }
     }
 
     func toggleCaptions() {
@@ -198,6 +204,7 @@ final class AetherRecordingController: ObservableObject {
         stillProbeCancellation?.cancel()
         stillProbeCancellation = nil
         stillSourceOffset = nil
+        heldSessionZero = nil
         loadTask?.cancel()
         loadTask = Task { [weak self] in
             do {
@@ -236,6 +243,21 @@ final class AetherRecordingController: ObservableObject {
         }
     }
 
+    /// The session zero the clock last paired against the picture, held across the window where the
+    /// pair goes degenerate.
+    ///
+    /// Measured on the simulator, 2026-11-07, scrubbing this recording: while a press's seek is in
+    /// flight the pair reads 88515.9s, and at the landing it collapses to 0 (`fill center=138.5s
+    /// source=138.5s`), because the two clock fields are momentarily on the same axis. A zero asks the
+    /// extractor for a position before the stream begins, which answers with the recording's first
+    /// frame at every position: fills at 48.5/78.5/108.5 published one identical hash. It recovers a
+    /// few hundred ms later on its own.
+    ///
+    /// The session zero is a property of the stream's timestamps, not of the seek, so a value already
+    /// learned this session stays valid. It is never lowered: a reading below the held one is the
+    /// collapse, not a new origin.
+    private var heldSessionZero: TimeInterval?
+
     /// Which source-axis frame the session shows at a display position.
     ///
     /// The clock answers this directly: `clock.sourceTime` is the raw synchronizer clock in the source
@@ -246,14 +268,20 @@ final class AetherRecordingController: ObservableObject {
     /// of the picture the session was showing.
     ///
     /// `sourceTimeFollowsPicture` (AE#616) gates it: while the clock cannot prove the source time
-    /// describes the rendered frame, fall back to the measured origin rather than aim at a guess.
+    /// describes the rendered frame, fall back to the measured origin rather than aim at a guess. A
+    /// zero is refused for the same reason, and nil means blank plus retry rather than a decode at 0.
     private func sourceSeconds(for position: TimeInterval) -> TimeInterval? {
         guard let engine else { return nil }
-        let sessionZero = engine.sourceTime - engine.clock.currentTime
-        guard engine.sourceTimeFollowsPicture, sessionZero.isFinite, sessionZero >= 0 else {
-            return stillSourceOffset.map { position + $0 }
+        let measured = engine.sourceTime - engine.clock.currentTime
+        if engine.sourceTimeFollowsPicture, measured.isFinite, measured > 0,
+           measured >= (heldSessionZero ?? 0) {
+            heldSessionZero = measured
+            return measured + position
         }
-        return sessionZero + position
+        // Either the clock cannot pair the two axes, or the pair went degenerate at a landing. Ride
+        // what this session already proved, then the probe, then nothing.
+        if let held = heldSessionZero { return held + position }
+        return stillSourceOffset.map { position + $0 }
     }
 
     /// The measured fallback for a session whose clock cannot pair source time against the picture.
@@ -339,8 +367,8 @@ final class AetherRecordingController: ObservableObject {
         EngineLog.emit("[ScrubStill] landing target=\(String(format: "%.1f", target))s "
                        + "clock=\(String(format: "%.1f", landed))s "
                        + "gap=\(String(format: "%.1f", target - landed))s")
-        engineTime = landed
-        currentTime = landed
+        if engineTime != landed { engineTime = landed }
+        if currentTime != landed { currentTime = landed }
         holdDisplayUntil = Date().addingTimeInterval(Self.landedStillTail)
         refreshScrubState()
     }
@@ -349,8 +377,10 @@ final class AetherRecordingController: ObservableObject {
         // The engine reads the real length from the file, padding included. Until it has, the
         // scheduled length stands in (it runs short of the file when the recording has padding).
         let scheduled = entry.map { max($0.stop.timeIntervalSince($0.start), 1) } ?? 0
-        duration = engineDuration > 0 ? engineDuration : scheduled
-        engineTime = max(time, 0)
+        let resolvedDuration = engineDuration > 0 ? engineDuration : scheduled
+        if resolvedDuration != duration { duration = resolvedDuration }
+        let clock = max(time, 0)
+        if clock != engineTime { engineTime = clock }
         // A clock that moved off the value the seek was issued against is the landing. State changes
         // report it too, but a seek issued while paused lands without one.
         if lastSeekTarget != nil,
@@ -358,8 +388,8 @@ final class AetherRecordingController: ObservableObject {
            || Date().timeIntervalSince(lastSeekAt) > Self.stalledSeekTimeoutSeconds {
             logLandingGap()
         }
-        if Date() >= holdDisplayUntil {
-            currentTime = max(time, 0)
+        if Date() >= holdDisplayUntil, currentTime != clock {
+            currentTime = clock
         }
         refreshScrubState()
     }
