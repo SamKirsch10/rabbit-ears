@@ -54,6 +54,16 @@ final class RemoteScrubRouter {
     /// A fast flick must not land at the far end of the recording in one gesture.
     private static let swipeCap: TimeInterval = 120
 
+    /// Seconds per point while a finger is tracked. Not `swipeSecondsPerPoint`: that scales the small
+    /// displacement a recognizer reports at `.began`, this scales the finger's whole travel.
+    private static let fingerSecondsPerPoint: TimeInterval = 0.15
+    /// Travel before a finger is read as horizontal or vertical. A click or a resting thumb stays inside
+    /// it, and a vertical swipe is focus navigation, so it must never scrub.
+    private static let fingerDeadZone: CGFloat = 12
+    /// How often tracked movement reaches the bar. The bar re-attaches on each position change, so
+    /// flushing every touch would compute from a stale position and drop movement.
+    private static let fingerFlushSeconds: TimeInterval = 0.08
+
     private var onTick: ((Int, TimeInterval) -> Void)?
     private var onDrag: ((Double) -> Void)?
     /// The bar's answer to one discrete swipe: move the playhead by a signed number of seconds.
@@ -105,6 +115,7 @@ final class RemoteScrubRouter {
     func detach() {
         if onTick != nil { log("[RemoteScrub] detached") }
         stopRun()
+        fingerPending = 0
         onTick = nil
         onDrag = nil
         onDragDelta = nil
@@ -271,7 +282,7 @@ final class RemoteScrubRouter {
     /// Displacement is preferred, velocity is the fallback: some swipes are recognized before UIKit
     /// reports any translation, and a flick with none would otherwise be dropped.
     func swipe(dx: CGFloat, dy: CGFloat, vx: CGFloat, vy: CGFloat) {
-        guard let onDragDelta else { return }
+        guard let onDragDelta, !fingerTracks else { return }
         let horizontal: CGFloat
         if abs(dx) >= abs(dy), abs(dx) > 8 {
             horizontal = dx
@@ -285,6 +296,74 @@ final class RemoteScrubRouter {
         log("swipe dx=\(Int(dx)) dy=\(Int(dy)) vx=\(String(format: "%.0f", vx)) "
             + "moved=\(String(format: "%.0f", moved))s")
         onDragDelta(moved)
+    }
+
+    // MARK: tracked finger
+
+    /// Set by the first `.moved` touch. `sendEvent` runs ahead of the recognizers, so the pan's discrete
+    /// `swipe` is switched off before it can count the same gesture. If no `.moved` ever arrives, this
+    /// stays false and `swipe` carries on.
+    private var fingerTracks = false
+    private var fingerStart: CGPoint?
+    private var fingerLast: CGPoint?
+    private var fingerHorizontal: Bool?
+    private var fingerSteps = 0
+    private var fingerMoved: TimeInterval = 0
+    private var fingerPending: TimeInterval = 0
+    private var fingerFlush: Task<Void, Never>?
+
+    /// One raw touch from the pad, so the playhead follows the finger instead of jumping once per swipe.
+    /// Deltas only: the first location is not where the finger landed on the pad.
+    func finger(_ phase: UITouch.Phase, at point: CGPoint) {
+        switch phase {
+        case .began:
+            fingerStart = point
+            fingerLast = point
+            fingerHorizontal = nil
+            fingerSteps = 0
+            fingerMoved = 0
+        case .moved:
+            guard let start = fingerStart, let last = fingerLast else { return }
+            fingerTracks = true
+            fingerSteps += 1
+            fingerLast = point
+            guard let horizontal = fingerHorizontal else {
+                let dx = abs(point.x - start.x), dy = abs(point.y - start.y)
+                if max(dx, dy) > Self.fingerDeadZone { fingerHorizontal = dx >= dy }
+                return
+            }
+            guard horizontal, held.isEmpty, onDragDelta != nil else { return }
+            fingerPending += (point.x - last.x) * Self.fingerSecondsPerPoint
+            scheduleFingerFlush()
+        case .ended, .cancelled:
+            flushFinger()
+            if let start = fingerStart, let last = fingerLast, onDragDelta != nil {
+                log("finger ended phase=\(phase.rawValue) steps=\(fingerSteps) dx=\(Int(last.x - start.x)) "
+                    + "dy=\(Int(last.y - start.y)) moved=\(String(format: "%.0f", fingerMoved))s")
+            }
+            fingerStart = nil
+            fingerLast = nil
+        default:
+            break
+        }
+    }
+
+    private func scheduleFingerFlush() {
+        guard fingerFlush == nil else { return }
+        fingerFlush = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.fingerFlushSeconds))
+            self?.flushFinger()
+        }
+    }
+
+    private func flushFinger() {
+        fingerFlush?.cancel()
+        fingerFlush = nil
+        let amount = fingerPending
+        fingerPending = 0
+        guard amount != 0, let onDragDelta else { return }
+        fingerMoved += amount
+        onDragDelta(amount)
     }
 }
 
@@ -435,6 +514,15 @@ private func routePresses(of event: UIEvent, at source: String) {
     }
 }
 
+/// Hands the pad's raw touches to the router. The app object only, not the window as well: unlike a
+/// press, a touch delta counted twice would move the playhead twice.
+@MainActor
+private func routeTouches(of event: UIEvent) {
+    guard event.type == .touches,
+          let touch = event.allTouches?.first(where: { $0.type == .indirect }) else { return }
+    RemoteScrubRouter.shared.finger(touch.phase, at: touch.location(in: nil))
+}
+
 /// The app object, set as the principal class by `NSPrincipalClass` in Info.plist. `sendEvent` is where
 /// a press enters the app, ahead of the focus engine and SwiftUI, which is why it can see a press and a
 /// release that no `pressesBegan` override does while the scrubber holds focus. Everything goes to
@@ -447,6 +535,7 @@ final class RemoteScrubApplication: UIApplication {
 
     override func sendEvent(_ event: UIEvent) {
         routePresses(of: event, at: "app")
+        routeTouches(of: event)
         super.sendEvent(event)
     }
 }
