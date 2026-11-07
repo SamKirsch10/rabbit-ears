@@ -36,6 +36,23 @@ final class ScrubFeedback: ObservableObject {
     }
 }
 
+/// What the remote attachment re-runs on: the values its closures read. A tuple cannot be a
+/// `.task(id:)` payload — tuples do not conform to `Equatable` — so the inputs get a name.
+private struct ScrubAttachment: Equatable {
+    let focused: Bool
+    let currentTime: TimeInterval
+    let duration: TimeInterval
+}
+
+private struct LiveScrubAttachment: Equatable {
+    let focused: Bool
+    let currentTime: TimeInterval
+    let duration: TimeInterval
+    let now: Date
+    let showStart: Date?
+    let showStop: Date?
+}
+
 struct ScrubBubble: View {
     let delta: TimeInterval
 
@@ -61,7 +78,9 @@ struct ScrubBubble: View {
 }
 
 // DVR scrubber: elapsed/total with a dot at the current position, in the
-// guide's blue. tvOS has no touch input, so left/right skip by `step`.
+// guide's blue. A click skips by `step`; a held direction runs continuously
+// (see RemoteScrubRouter), and a drag across the touch surface moves the dot
+// to where the finger is.
 struct ScrubberBar: View {
     let currentTime: TimeInterval
     let duration: TimeInterval
@@ -98,6 +117,10 @@ struct ScrubberBar: View {
                 }
                 .animation(.easeOut(duration: 0.25), value: feedback.visible)
                 .frame(height: geo.size.height)
+                // The track's rect, not the padded bar's: a drag has to map onto the same width the
+                // dot is placed as a fraction of.
+                .overlay(RemoteBarFrameProbe { rect in RemoteScrubRouter.shared.reportRect(rect) })
+                .allowsHitTesting(false)
             }
             .frame(height: 30)
 
@@ -116,23 +139,49 @@ struct ScrubberBar: View {
                 .stroke(guideAccent.opacity(isFocused ? 1 : 0), lineWidth: 3)
         )
         .focusable(true)
+        // Only the focused bar holds the remote: a hidden banner's bar must not scrub, and a bar that
+        // lost focus to the play button must not leave a run ticking behind it. Re-attach whenever the
+        // values the closures read moves — the router keeps a closure between presses, and a struct's
+        // closure captures the struct's *value*, so one attached at focus would scrub from the
+        // position the bar had then and a run would never accumulate.
+        .task(id: ScrubAttachment(focused: isFocused, currentTime: currentTime, duration: duration)) {
+            if isFocused {
+                RemoteScrubRouter.shared.attach(tick: { dir, amount in move(by: Double(dir) * amount) },
+                                                drag: seek(fraction:),
+                                                dragDelta: move(by:))
+            } else {
+                RemoteScrubRouter.shared.detach()
+            }
+        }
+        .onDisappear { RemoteScrubRouter.shared.detach() }
         .onMoveCommand { direction in
             switch direction {
             case .left, .right:
-                // If the reported length is unknown or stale (a recording still
-                // being written), don't let it block forward scrubbing.
-                let dir = direction == .left ? -1 : 1
-                let amount = feedback.step(direction: dir, tap: step, held: heldStep)
-                let limit = duration > currentTime ? duration : currentTime + amount
-                let target = direction == .left ? max(currentTime - amount, 0) : min(currentTime + amount, limit)
-                let moved = abs(target - currentTime)
-                feedback.add(Double(dir) * min(amount, moved))
-                onSeek(target)
+                // The fallback for when `sendEvent` reports nothing. Measured on the living-room box it
+                // is one event per press and no release, so it cannot carry a hold; once `sendEvent` has
+                // reported, `RemoteScrubRouter` treats these as witnesses only.
+                RemoteScrubRouter.shared.feed(direction == .left ? -1 : 1, from: "move")
             case .down: onDown()
             default: break
             }
         }
     }
+
+    /// Move the dot by a signed amount and seek it. Forward keeps the stale-length guard: a recording
+    /// still being written reports a short length, and that must not block scrubbing forward.
+    private func move(by amount: TimeInterval) {
+        let limit = duration > currentTime ? duration : currentTime + amount
+        let target = amount >= 0 ? min(currentTime + amount, limit) : max(currentTime + amount, 0)
+        feedback.add(amount)
+        onSeek(target)
+    }
+
+    /// Jump to a fraction of the track — where the finger is, not how far it travelled.
+    private func seek(fraction: Double) {
+        guard duration > 0 else { return }
+        onSeek(min(max(duration * fraction, 0), duration))
+    }
+
 
     private static func formatted(_ time: TimeInterval) -> String {
         let total = max(Int(time), 0)
@@ -149,7 +198,9 @@ struct ScrubberBar: View {
 // Live-TV scrubber on the *show's* timeline: the track spans the program's
 // start..stop in wall-clock time. The lighter segment is what the timeshift
 // buffer holds (you can only scrub inside it), and the dot is where you are.
-// Left/right moves the dot by `step` seconds.
+// A click moves the dot by `step` seconds; a held direction runs continuously
+// and a drag across the touch surface jumps to where the finger is, both
+// through RemoteScrubRouter.
 struct LiveScrubberBar: View {
     let showStart: Date?
     let showStop: Date?
@@ -204,6 +255,10 @@ struct LiveScrubberBar: View {
                 }
                 .animation(.easeOut(duration: 0.25), value: feedback.visible)
                 .frame(height: geo.size.height)
+                // The track's rect, not the padded bar's: a drag maps onto the same width the dot is
+                // placed as a fraction of.
+                .overlay(RemoteBarFrameProbe { rect in RemoteScrubRouter.shared.reportRect(rect) })
+                .allowsHitTesting(false)
             }
             .frame(height: 30)
 
@@ -224,6 +279,21 @@ struct LiveScrubberBar: View {
                 .stroke(guideAccent.opacity(isFocused ? 1 : 0), lineWidth: 3)
         )
         .focusable(true)
+        // Same contract as `ScrubberBar`: only the focused bar holds the remote, and the closures are
+        // re-attached whenever what they read moves. `now` ticks once a second, which also refreshes
+        // the guide dates as they arrive.
+        .task(id: LiveScrubAttachment(focused: isFocused, currentTime: currentTime,
+                                      duration: duration, now: now,
+                                      showStart: showStart, showStop: showStop)) {
+            if isFocused {
+                RemoteScrubRouter.shared.attach(tick: { dir, amount in move(by: Double(dir) * amount) },
+                                                drag: seek(fraction:),
+                                                dragDelta: move(by:))
+            } else {
+                RemoteScrubRouter.shared.detach()
+            }
+        }
+        .onDisappear { RemoteScrubRouter.shared.detach() }
         .onMoveCommand { direction in
             let dir: Int
             switch direction {
@@ -232,14 +302,31 @@ struct LiveScrubberBar: View {
             case .down: onDown(); return
             default: return
             }
-            let amount = feedback.step(direction: dir, tap: step, held: heldStep)
-            let target = currentWall.addingTimeInterval(Double(dir) * amount)
-            let clamped = min(max(target, bufferStart), now)
-            let moved = abs(clamped.timeIntervalSince(currentWall))
-            feedback.add(Double(dir) * min(amount, moved))
-            onSeek(clamped.timeIntervalSince(bufferStart))
+            // Left/right feed the run — see `ScrubberBar`'s `onMoveCommand` for why this is the
+            // fallback.
+            RemoteScrubRouter.shared.feed(dir, from: "move")
         }
     }
+
+    /// Move the dot by a signed amount and seek it. Only the buffered part is reachable, and the
+    /// bubble reports what actually moved, not what was asked for.
+    private func move(by amount: TimeInterval) {
+        let target = currentWall.addingTimeInterval(amount)
+        let clamped = min(max(target, bufferStart), now)
+        let moved = min(abs(amount), abs(clamped.timeIntervalSince(currentWall)))
+        feedback.add(amount < 0 ? -moved : moved)
+        onSeek(clamped.timeIntervalSince(bufferStart))
+    }
+
+    /// Jump to a fraction of the track. The track spans the whole show, but only the buffered part is
+    /// reachable, so a drag past the live edge stops at the edge instead of seeking beyond it.
+    private func seek(fraction: Double) {
+        let total = rangeStop.timeIntervalSince(rangeStart)
+        guard total > 0 else { return }
+        let target = min(max(rangeStart.addingTimeInterval(total * fraction), bufferStart), now)
+        onSeek(target.timeIntervalSince(bufferStart))
+    }
+
 
     private static func clock(_ date: Date) -> String {
         date.formatted(date: .omitted, time: .shortened)

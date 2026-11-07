@@ -135,6 +135,7 @@ final class AetherRecordingController: ObservableObject {
         pendingSeekWork = nil
         lastSeekTarget = nil
         lastSeekAt = Date.distantPast
+        lastSeekIssuedAt = Date.distantPast
         seekClockBaseline = 0
         holdDisplayUntil = Date.distantPast
     }
@@ -156,7 +157,17 @@ final class AetherRecordingController: ObservableObject {
         }
     }
 
-    /// Debounced so a held remote direction coalesces into one seek.
+    /// How often a scrub may restart the pipeline. A held direction calls `seek(to:)` several times a
+    /// second, and a trailing debounce alone issues nothing until the press stops — the dot ran ahead
+    /// of a picture that never moved. One seek per this window keeps the video moving through a burst,
+    /// and the trailing item still lands the final position, which is the one that matters.
+    private static let burstSeekCadence: TimeInterval = 0.5
+
+    /// When the last seek was issued, so a burst knows when it may restart the pipeline again.
+    private var lastSeekIssuedAt = Date.distantPast
+
+    /// Scrub to a position: leading edge while a burst is still going (see `burstSeekCadence`),
+    /// trailing debounce otherwise, so a single press lands too.
     func seek(to time: TimeInterval) {
         pendingSeekWork?.cancel()
         // Assigned only when the value moved. Every one of these is @Published, and the clock tick
@@ -168,9 +179,16 @@ final class AetherRecordingController: ObservableObject {
         if !isScrubbing { isScrubbing = true }
         // Visible while presses are hot; the landing extends it (see `landedStillTail`).
         holdDisplayUntil = Date().addingTimeInterval(Self.previewWindow)
+
+        let gap = Date().timeIntervalSince(lastSeekIssuedAt)
+        if gap >= Self.burstSeekCadence {
+            lastSeekIssuedAt = Date()
+            performSeek(to: time)
+            return
+        }
         let work = DispatchWorkItem { [weak self] in self?.performSeek(to: time) }
         pendingSeekWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + (Self.burstSeekCadence - gap), execute: work)
     }
 
     /// Re-point the scrub still: the requested position while a press's seek is outstanding, the

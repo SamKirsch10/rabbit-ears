@@ -15,6 +15,9 @@
     </array>
     <key>NSNetworkUsageDescription</key>
     <string>This app needs network communication to access TVHeadend services</string>
+    <!-- The app object reads presses at sendEvent, ahead of SwiftUI (see RemoteScrubApplication). -->
+    <key>NSPrincipalClass</key>
+    <string>$(PRODUCT_MODULE_NAME).RemoteScrubApplication</string>
     <key>UIApplicationSceneManifest</key>
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>

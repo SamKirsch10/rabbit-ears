@@ -93,6 +93,7 @@ final class AetherLiveController: ObservableObject {
         started = false
         loadTask?.cancel()
         pendingSeekWork?.cancel()
+        lastSeekIssuedAt = Date.distantPast
         engine?.stop()
     }
 
@@ -112,19 +113,34 @@ final class AetherLiveController: ObservableObject {
         }
     }
 
-    /// `time` is in scrubber space. Debounced so a held remote direction coalesces into one seek.
+    /// How often a scrub may restart the pipeline: a held direction calls `seek(to:)` several times a
+    /// second, and a trailing debounce alone issues nothing until the press stops. Same contract as
+    /// `AetherRecordingController.burstSeekCadence`.
+    private static let burstSeekCadence: TimeInterval = 0.5
+    private var lastSeekIssuedAt = Date.distantPast
+
+    /// `time` is in scrubber space. Leading edge while a burst is still going, trailing debounce
+    /// otherwise, so a single press lands and a held one keeps the picture moving.
     func seek(to time: TimeInterval) {
         pendingSeekWork?.cancel()
         currentTime = time
         holdDisplayUntil = Date().addingTimeInterval(2)
+
+        let gap = Date().timeIntervalSince(lastSeekIssuedAt)
+        if gap >= Self.burstSeekCadence {
+            lastSeekIssuedAt = Date()
+            performSeek(to: time)
+            return
+        }
         let work = DispatchWorkItem { [weak self] in self?.performSeek(to: time) }
         pendingSeekWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + (Self.burstSeekCadence - gap), execute: work)
     }
 
     func goLive() {
         guard let engine else { return }
         pendingSeekWork?.cancel()
+        lastSeekIssuedAt = Date.distantPast
         holdDisplayUntil = .distantPast
         let wasPaused = pausedAt != nil || !isPlaying
         pausedAt = nil
