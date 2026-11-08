@@ -8,19 +8,6 @@ final class ScrubFeedback: ObservableObject {
     @Published private(set) var delta: TimeInterval = 0
     @Published private(set) var visible = false
     private var work: DispatchWorkItem?
-    private var lastPress = Date.distantPast
-    private var lastDirection = 0
-
-    /// A direction held down auto-repeats quickly; a repeat of the same
-    /// direction within this window counts as "held" and scrubs by `held`
-    /// seconds instead of `tap`.
-    func step(direction: Int, tap: TimeInterval, held: TimeInterval) -> TimeInterval {
-        let now = Date()
-        let isHeld = direction == lastDirection && now.timeIntervalSince(lastPress) < 0.6
-        lastDirection = direction
-        lastPress = now
-        return isHeld ? held : tap
-    }
 
     /// Adds one press worth of movement. A press after the bubble has faded
     /// starts a fresh count.
@@ -78,15 +65,13 @@ struct ScrubBubble: View {
 }
 
 // DVR scrubber: elapsed/total with a dot at the current position, in the
-// guide's blue. A click skips by `step`; a held direction runs continuously
-// (see RemoteScrubRouter), and a drag across the touch surface moves the dot
-// to where the finger is.
+// guide's blue. A click skips 10 s, a held direction runs continuously, and a
+// finger on the touch surface moves the dot as it travels, all through
+// RemoteScrubRouter.
 struct ScrubberBar: View {
     let currentTime: TimeInterval
     let duration: TimeInterval
     let onSeek: (TimeInterval) -> Void
-    var step: TimeInterval = 10
-    var heldStep: TimeInterval = 30
     let isFocused: Bool
     let onDown: () -> Void
     @StateObject private var feedback = ScrubFeedback()
@@ -117,9 +102,6 @@ struct ScrubberBar: View {
                 }
                 .animation(.easeOut(duration: 0.25), value: feedback.visible)
                 .frame(height: geo.size.height)
-                // The track's rect, not the padded bar's: a drag has to map onto the same width the
-                // dot is placed as a fraction of.
-                .overlay(RemoteBarFrameProbe { rect in RemoteScrubRouter.shared.reportRect(rect) })
                 .allowsHitTesting(false)
             }
             .frame(height: 30)
@@ -147,23 +129,16 @@ struct ScrubberBar: View {
         .task(id: ScrubAttachment(focused: isFocused, currentTime: currentTime, duration: duration)) {
             if isFocused {
                 RemoteScrubRouter.shared.attach(tick: { dir, amount in move(by: Double(dir) * amount) },
-                                                drag: seek(fraction:),
-                                                dragDelta: move(by:))
+                                                drag: move(by:))
             } else {
                 RemoteScrubRouter.shared.detach()
             }
         }
         .onDisappear { RemoteScrubRouter.shared.detach() }
+        // Left and right scrub through RemoteScrubRouter, which sees them before SwiftUI does; only down
+        // is acted on here.
         .onMoveCommand { direction in
-            switch direction {
-            case .left, .right:
-                // The fallback for when `sendEvent` reports nothing. Measured on the living-room box it
-                // is one event per press and no release, so it cannot carry a hold; once `sendEvent` has
-                // reported, `RemoteScrubRouter` treats these as witnesses only.
-                RemoteScrubRouter.shared.feed(direction == .left ? -1 : 1, from: "move")
-            case .down: onDown()
-            default: break
-            }
+            if direction == .down { onDown() }
         }
     }
 
@@ -175,13 +150,6 @@ struct ScrubberBar: View {
         feedback.add(amount)
         onSeek(target)
     }
-
-    /// Jump to a fraction of the track — where the finger is, not how far it travelled.
-    private func seek(fraction: Double) {
-        guard duration > 0 else { return }
-        onSeek(min(max(duration * fraction, 0), duration))
-    }
-
 
     private static func formatted(_ time: TimeInterval) -> String {
         let total = max(Int(time), 0)
@@ -198,9 +166,7 @@ struct ScrubberBar: View {
 // Live-TV scrubber on the *show's* timeline: the track spans the program's
 // start..stop in wall-clock time. The lighter segment is what the timeshift
 // buffer holds (you can only scrub inside it), and the dot is where you are.
-// A click moves the dot by `step` seconds; a held direction runs continuously
-// and a drag across the touch surface jumps to where the finger is, both
-// through RemoteScrubRouter.
+// Remote input works as on the DVR bar, through RemoteScrubRouter.
 struct LiveScrubberBar: View {
     let showStart: Date?
     let showStop: Date?
@@ -210,8 +176,6 @@ struct LiveScrubberBar: View {
     let duration: TimeInterval
     let isLive: Bool
     let onSeek: (TimeInterval) -> Void
-    var step: TimeInterval = 10
-    var heldStep: TimeInterval = 30
     let isFocused: Bool
     let onDown: () -> Void
     @StateObject private var feedback = ScrubFeedback()
@@ -255,9 +219,6 @@ struct LiveScrubberBar: View {
                 }
                 .animation(.easeOut(duration: 0.25), value: feedback.visible)
                 .frame(height: geo.size.height)
-                // The track's rect, not the padded bar's: a drag maps onto the same width the dot is
-                // placed as a fraction of.
-                .overlay(RemoteBarFrameProbe { rect in RemoteScrubRouter.shared.reportRect(rect) })
                 .allowsHitTesting(false)
             }
             .frame(height: 30)
@@ -287,24 +248,15 @@ struct LiveScrubberBar: View {
                                       showStart: showStart, showStop: showStop)) {
             if isFocused {
                 RemoteScrubRouter.shared.attach(tick: { dir, amount in move(by: Double(dir) * amount) },
-                                                drag: seek(fraction:),
-                                                dragDelta: move(by:))
+                                                drag: move(by:))
             } else {
                 RemoteScrubRouter.shared.detach()
             }
         }
         .onDisappear { RemoteScrubRouter.shared.detach() }
+        // As on `ScrubberBar`: left and right scrub through RemoteScrubRouter.
         .onMoveCommand { direction in
-            let dir: Int
-            switch direction {
-            case .left: dir = -1
-            case .right: dir = 1
-            case .down: onDown(); return
-            default: return
-            }
-            // Left/right feed the run — see `ScrubberBar`'s `onMoveCommand` for why this is the
-            // fallback.
-            RemoteScrubRouter.shared.feed(dir, from: "move")
+            if direction == .down { onDown() }
         }
     }
 
@@ -317,16 +269,6 @@ struct LiveScrubberBar: View {
         feedback.add(amount < 0 ? -moved : moved)
         onSeek(clamped.timeIntervalSince(bufferStart))
     }
-
-    /// Jump to a fraction of the track. The track spans the whole show, but only the buffered part is
-    /// reachable, so a drag past the live edge stops at the edge instead of seeking beyond it.
-    private func seek(fraction: Double) {
-        let total = rangeStop.timeIntervalSince(rangeStart)
-        guard total > 0 else { return }
-        let target = min(max(rangeStart.addingTimeInterval(total * fraction), bufferStart), now)
-        onSeek(target.timeIntervalSince(bufferStart))
-    }
-
 
     private static func clock(_ date: Date) -> String {
         date.formatted(date: .omitted, time: .shortened)

@@ -58,9 +58,8 @@ public final class ClientSideThumbnailProvider: ObservableObject {
     @Published private(set) var lastImage: UIImage?
 
     /// How many stills to keep. Sized against the still's own footprint: at the cell's decode width
-    /// each still is a quarter of a megabyte, so this stays in the tens of megabytes. A held press
-    /// moves `ScrubberBar.heldStep` (30 s) at a time, so the entries worth keeping are the ones a
-    /// scrub revisits inside roughly that span.
+    /// each still is a quarter of a megabyte, so this stays in the tens of megabytes. A scrub moves the
+    /// dot in small increments, so the entries worth keeping are the ones it revisits as it doubles back.
     private static let cacheLimit = 32
 
     private let extractor: FrameExtractor

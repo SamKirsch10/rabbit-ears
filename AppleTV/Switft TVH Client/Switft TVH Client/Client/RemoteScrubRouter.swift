@@ -3,16 +3,17 @@ import AetherEngine
 import SwiftUI
 import UIKit
 
-/// Remote and touch-surface input SwiftUI cannot see directly.
+/// Remote and touch-surface input SwiftUI cannot see.
 ///
-/// A held right arrow used to move the dot one step and stop, and a swipe of the touch surface did
-/// nothing at all. The two inputs are captured at different places because they arrive at different
-/// places: presses at `sendEvent`, ahead of SwiftUI (`onMoveCommand` fires once per press with no
-/// release, and `onKeyPress` never fires for the remote — both measured on device), and pad swipes at a
-/// gesture recognizer on `RemoteScrubWindow` (no SwiftUI view on tvOS is touch-addressable).
+/// Both arrive at `RemoteScrubApplication.sendEvent`, ahead of the focus engine and SwiftUI. Measured on
+/// the living-room Apple TV, 2026-11-07, while a SwiftUI view holds focus: `onMoveCommand` fires once per
+/// press with no release, `onKeyPress` never fires for the remote, and `pressesBegan`-family overrides
+/// see nothing. `sendEvent` sees a press's `.began` and `.ended`, and the pad's raw touches as a
+/// continuous `.moved` stream. A window `UIPanGestureRecognizer` only ever reached `.began` on the same
+/// pad, which made it look discrete; it isn't.
 ///
-/// The pad is discrete — see `swipe` for what that means on device — so a swipe moves the playhead by
-/// its own displacement rather than aiming at a position on the bar.
+/// A held direction runs at a ramping rate until the release; a finger on the pad moves the playhead by
+/// how far it travels.
 ///
 /// One bar at a time. A bar attaches while it is focused and detaches otherwise, so a press on
 /// another screen never scrubs anything.
@@ -20,8 +21,8 @@ import UIKit
 final class RemoteScrubRouter {
     static let shared = RemoteScrubRouter()
 
-    /// Where a held direction starts: `heldStep` per the held window (`ScrubFeedback.step`'s 0.6 s),
-    /// which is what a repeated press already cost.
+    /// Where a held direction starts: 30 s per 0.6 s, what holding a press used to cost when every
+    /// auto-repeat moved the dot a fixed step.
     private static let baseRate: TimeInterval = 30 / 0.6      // 50 s/s
     /// Doubling every `rampSeconds` until here. The ramp is what makes a hold fast without making a
     /// single click fast: crossing an hours-long recording takes tens of seconds of holding, not
@@ -32,30 +33,15 @@ final class RemoteScrubRouter {
     /// so the dot can move faster than the pipeline restarts.
     private static let tickSeconds: TimeInterval = 0.2
 
-    /// A hold shorter than one tick still has to move. This is what a single click cost before the
-    /// run existed, so one press is unchanged.
+    /// A click still has to move. This is what a single click cost before the run existed, so one press
+    /// is unchanged.
     private static let tapFloor: TimeInterval = 10
-
-    /// How long a run keeps going after the last event, for `onMoveCommand` only: it reports no release,
-    /// so this gap stands in for one. A source that reports a release is never timed out.
-    private static let holdIdle: TimeInterval = 0.6
 
     /// A press shorter than this is a click: the run moves nothing and `stopRun` tops it up to `tapFloor`.
     private static let clickGrace: TimeInterval = 0.35
 
-    /// Seconds a swipe moves per point the finger travelled. Measured on the living-room box, 2026-11-07:
-    /// swipes travel ~10-210 pt, median ~100. At 0.25 s/pt a typical swipe moved ~25 s (too small to
-    /// cross anything); a fraction of the bar moved ~420 s on an hours-long recording (far too large).
-    /// 0.4 lands a typical swipe near 40 s — surgical enough to land inside a minute of where you aimed,
-    /// and a dozen swipes still crosses a two-hour recording.
-    private static let swipeSecondsPerPoint: TimeInterval = 0.4
-    /// A swipe with no reported displacement still moves this much — one click, never nothing.
-    private static let swipeFloor: TimeInterval = 15
-    /// A fast flick must not land at the far end of the recording in one gesture.
-    private static let swipeCap: TimeInterval = 120
-
-    /// Seconds per point while a finger is tracked. Not `swipeSecondsPerPoint`: that scales the small
-    /// displacement a recognizer reports at `.began`, this scales the finger's whole travel.
+    /// Seconds per point of finger travel. Measured on device, a full-pad swipe travels ~650-1200 pt, so
+    /// one swipe moves ~1.5-3 min.
     private static let fingerSecondsPerPoint: TimeInterval = 0.15
     /// Travel before a finger is read as horizontal or vertical. A click or a resting thumb stays inside
     /// it, and a vertical swipe is focus navigation, so it must never scrub.
@@ -65,34 +51,18 @@ final class RemoteScrubRouter {
     private static let fingerFlushSeconds: TimeInterval = 0.08
 
     private var onTick: ((Int, TimeInterval) -> Void)?
-    private var onDrag: ((Double) -> Void)?
-    /// The bar's answer to one discrete swipe: move the playhead by a signed number of seconds.
-    private var onDragDelta: ((TimeInterval) -> Void)?
-    /// The bar's rect in window coordinates, reported by `RemoteBarFrameProbe`. What turns a
-    /// touch-surface position into a fraction of the bar; nil until a bar has reported one, which
-    /// leaves drags ignored.
-    private var barRect: CGRect?
+    /// The bar's answer to a finger's travel: move the playhead by a signed number of seconds.
+    private var onDrag: ((TimeInterval) -> Void)?
 
-    /// Directions held right now. A repeat of a direction already held is ignored: the run is
-    /// measured from elapsed time, so a remote that auto-repeats does not move the dot twice as fast.
+    /// Directions held right now. A second `.began` for a direction already held is ignored: the run is
+    /// measured from elapsed time, so it does not move the dot twice as fast.
     private var held: Set<Int> = []
     private var runDirection = 0
     private var runStart: Date?
     private var lastTick = Date.distantPast
     private var runMoved: TimeInterval = 0
     private var pump: Task<Void, Never>?
-    /// When the last press event arrived. The watchdog ends a run when this goes stale, for as long as
-    /// `onMoveCommand` is the only source.
-    private var lastEventAt = Date.distantPast
-
-    /// Per-direction witnesses, so the trace says whether presses arrive at all, how far apart a held
-    /// direction repeats, and where they were seen. Flooding a trace is what makes it unreadable, so a
-    /// repeat inside `pressLogGap` is not logged; the run's own `moved` line carries the accumulation.
-    private var lastPressLogged: [Int: Date] = [:]
-    private var lastPressAt: [Int: Date] = [:]
-    private static let pressLogGap: TimeInterval = 0.3
-
-    /// Every witness this router and its window emit. The simulator is read through the log stream;
+    /// Every witness this router emits. The simulator is read through the log stream;
     /// a real Apple TV cannot be streamed from the Mac, so the same lines also go to `ScrubTrace` and
     /// are pulled out of the app's container afterwards.
     func log(_ line: String) {
@@ -102,13 +72,10 @@ final class RemoteScrubRouter {
 
     /// The bar claiming the remote. Both closures are the bar's own, because the bar owns its
     /// clamping: DVR clamps against the recording's length, live TV against the timeshift buffer.
-    func attach(tick: @escaping (Int, TimeInterval) -> Void,
-                drag: @escaping (Double) -> Void,
-                dragDelta: @escaping (TimeInterval) -> Void) {
+    func attach(tick: @escaping (Int, TimeInterval) -> Void, drag: @escaping (TimeInterval) -> Void) {
         if onTick == nil { log("[RemoteScrub] attached") }
         onTick = tick
         onDrag = drag
-        onDragDelta = dragDelta
     }
 
     /// Give up the remote. A bar that lost focus must not leave a run ticking behind it.
@@ -118,46 +85,21 @@ final class RemoteScrubRouter {
         fingerPending = 0
         onTick = nil
         onDrag = nil
-        onDragDelta = nil
-    }
-
-    func reportRect(_ rect: CGRect) {
-        if barRect != rect { log("[RemoteScrub] bar rect \(Int(rect.minX))..\(Int(rect.maxX)) w=\(Int(rect.width))") }
-        barRect = rect
     }
 
     // MARK: held directions
 
-    /// Whether `sendEvent` has delivered a press. It reports a real press and release, so once it has,
-    /// `onMoveCommand` is a witness only — both driving the run would count one click twice — and the
-    /// watchdog stands down. `sendEvent` runs first, so the first press is already covered.
-    private var eventSeen = false
-
-    /// One press of a direction, from whichever capture point saw it: `app` or `window` (`sendEvent`), or
-    /// `move` (`onMoveCommand`). `app` and `window` see the same press, and the second is a no-op because
-    /// the direction is already held.
-    ///
-    /// The bar does not move the dot on this call: the run below owns movement, so a press is never
-    /// counted twice.
-    func feed(_ direction: Int, from source: String) {
-        pressSeen(direction, at: source)
-        if source != "move" { eventSeen = true }
-        guard source != "move" || !eventSeen else { return }
-        guard onTick != nil else {
-            if !held.contains(direction) {
-                log("\(direction > 0 ? "right" : "left") press from \(source), no bar")
-            }
-            return
-        }
-        let now = Date()
-        lastEventAt = now
-        guard !held.contains(direction) else { return }
+    /// A direction went down. The bar does not move the dot on this call: the run below owns movement,
+    /// so a press is never counted twice.
+    func feed(_ direction: Int) {
+        guard onTick != nil, !held.contains(direction) else { return }
         held.insert(direction)
         // The only witness on device: `simctl` cannot inject tvOS keys, so these lines are how a hold
         // is verified — that the press was seen, and how far the run moved.
-        log("[RemoteScrub] hold dir=\(direction) began from \(source)")
+        log("[RemoteScrub] hold dir=\(direction) began")
         // A hold in the opposite direction starts a fresh run rather than carrying momentum.
         if runDirection != direction {
+            let now = Date()
             runDirection = direction
             runStart = now
             lastTick = now
@@ -166,39 +108,19 @@ final class RemoteScrubRouter {
         startPump()
     }
 
-    /// The finger lifted, as `sendEvent` reports it. `onMoveCommand` never calls this; the watchdog
-    /// covers it.
-    func release(_ direction: Int, from source: String) {
-        pressSeen(direction, at: "\(source) end")
+    /// The direction came up, or the press was cancelled.
+    func release(_ direction: Int) {
         guard held.contains(direction) else { return }
         held.remove(direction)
         if held.isEmpty { stopRun() }
     }
 
-    /// A directional press, logged whether or not a bar holds the remote — "no press lines" is the
-    /// finding worth having, meaning the capture point is wrong rather than the tuning. Repeats inside
-    /// `pressLogGap` are dropped so a hold doesn't flood the file; the gap between the lines that do
-    /// land is what shows whether UIKit delivers repeats while a direction is held, and at which point.
-    private func pressSeen(_ direction: Int, at source: String) {
-        let now = Date()
-        defer { lastPressAt[direction] = now }
-        guard now.timeIntervalSince(lastPressLogged[direction] ?? .distantPast) > Self.pressLogGap else { return }
-        lastPressLogged[direction] = now
-        let gap = lastPressAt[direction].map { " gap=\(String(format: "%.2f", now.timeIntervalSince($0)))s" } ?? ""
-        log("\(direction > 0 ? "right" : "left") press at \(source)\(gap)")
-    }
-
     /// One pump per hold, ticking at `tickSeconds`. Task-based like the still pump, so the loop runs on
-    /// the main actor. It ends on a release, on the watchdog when only `onMoveCommand` is reporting, or
-    /// on `detach`.
+    /// the main actor. It ends on a release or on `detach`.
     private func startPump() {
         guard pump == nil else { return }
         pump = Task { [weak self] in
             while let self, !self.held.isEmpty {
-                if !self.eventSeen, Date().timeIntervalSince(self.lastEventAt) > Self.holdIdle {
-                    self.stopRun()   // the finger lifted; no release event ever came
-                    break
-                }
                 self.tick()
                 try? await Task.sleep(for: .seconds(Self.tickSeconds))
             }
@@ -218,7 +140,7 @@ final class RemoteScrubRouter {
         if delta > 0 { onTick(runDirection, delta) }
     }
 
-    /// Ends a run, topping a short one up to a click's worth so a swipe still moves like a click.
+    /// Ends a run, topping a short one up to a click's worth.
     private func stopRun() {
         pump?.cancel()
         pump = nil
@@ -244,66 +166,8 @@ final class RemoteScrubRouter {
         min(baseRate * pow(2, hold / rampSeconds), maxRate)
     }
 
-    // MARK: drags
-
-    /// A finger dragged across the touch surface. Horizontal only: a vertical swipe is focus
-    /// navigation, and reading it as a drag would move the playhead to wherever the finger drifted in
-    /// x. The position is absolute — the fraction of the bar under the finger — which is what
-    /// "swipe to the point I want" means.
-    ///
-    /// The point has to be near the bar, not anywhere on the screen: the touch surface maps to the
-    /// whole screen, and a swipe over the video would otherwise clamp to an end and jump the playhead
-    /// to 0 or the length.
-    /// `ended` is the gesture's phase, for one log line per drag rather than one per finger update.
-    func drag(at point: CGPoint, translation: CGPoint, ended: Bool) {
-        guard let rect = barRect, let onDrag else { return }
-        guard abs(translation.x) > abs(translation.y), abs(translation.x) > 12 else { return }
-        guard rect.insetBy(dx: -40, dy: -60).contains(point) else { return }
-        let fraction = min(max((point.x - rect.minX) / max(rect.width, 1), 0), 1)
-        if ended {
-            log("[RemoteScrub] drag fraction=\(String(format: "%.2f", fraction)) "
-                           + "x=\(String(format: "%.0f", point.x)) bar=\(String(format: "%.0f", rect.minX))"
-                           + "..\(String(format: "%.0f", rect.maxX))")
-        }
-        onDrag(fraction)
-    }
-
-    /// One swipe on the touch surface, moved as a signed number of seconds.
-    ///
-    /// The pad is discrete. Measured on the living-room Apple TV, 2026-11-07: `pan began` repeats about
-    /// every 0.4 s and a `.changed` never arrives, because UIKit turns each swipe into a directional
-    /// press rather than handing a finger path to the recognizer. So there is no position to map onto
-    /// the bar — a swipe moves *by* its displacement, and repeated swipes accumulate.
-    ///
-    /// Seconds per point, not a fraction of the track: a fraction of a bar over an hours-long recording
-    /// is a jump of hundreds of seconds, which is the opposite of surgical. Seconds scale with the
-    /// gesture instead of the recording.
-    ///
-    /// Displacement is preferred, velocity is the fallback: some swipes are recognized before UIKit
-    /// reports any translation, and a flick with none would otherwise be dropped.
-    func swipe(dx: CGFloat, dy: CGFloat, vx: CGFloat, vy: CGFloat) {
-        guard let onDragDelta, !fingerTracks else { return }
-        let horizontal: CGFloat
-        if abs(dx) >= abs(dy), abs(dx) > 8 {
-            horizontal = dx
-        } else if abs(vx) >= abs(vy), abs(vx) > 30 {
-            horizontal = vx
-        } else {
-            return   // a vertical swipe is focus navigation, not a scrub
-        }
-        let seconds = max(abs(horizontal) * Self.swipeSecondsPerPoint, Self.swipeFloor)
-        let moved = min(seconds, Self.swipeCap) * (horizontal < 0 ? -1 : 1)
-        log("swipe dx=\(Int(dx)) dy=\(Int(dy)) vx=\(String(format: "%.0f", vx)) "
-            + "moved=\(String(format: "%.0f", moved))s")
-        onDragDelta(moved)
-    }
-
     // MARK: tracked finger
 
-    /// Set by the first `.moved` touch. `sendEvent` runs ahead of the recognizers, so the pan's discrete
-    /// `swipe` is switched off before it can count the same gesture. If no `.moved` ever arrives, this
-    /// stays false and `swipe` carries on.
-    private var fingerTracks = false
     private var fingerStart: CGPoint?
     private var fingerLast: CGPoint?
     private var fingerHorizontal: Bool?
@@ -312,8 +176,9 @@ final class RemoteScrubRouter {
     private var fingerPending: TimeInterval = 0
     private var fingerFlush: Task<Void, Never>?
 
-    /// One raw touch from the pad, so the playhead follows the finger instead of jumping once per swipe.
-    /// Deltas only: the first location is not where the finger landed on the pad.
+    /// One raw touch from the pad, so the playhead follows the finger. Deltas only: the first location
+    /// is not where the finger landed on the pad. Ignored while a direction is held, so a thumb resting
+    /// on the ring during a hold doesn't fight the run.
     func finger(_ phase: UITouch.Phase, at point: CGPoint) {
         switch phase {
         case .began:
@@ -324,7 +189,6 @@ final class RemoteScrubRouter {
             fingerMoved = 0
         case .moved:
             guard let start = fingerStart, let last = fingerLast else { return }
-            fingerTracks = true
             fingerSteps += 1
             fingerLast = point
             guard let horizontal = fingerHorizontal else {
@@ -332,12 +196,12 @@ final class RemoteScrubRouter {
                 if max(dx, dy) > Self.fingerDeadZone { fingerHorizontal = dx >= dy }
                 return
             }
-            guard horizontal, held.isEmpty, onDragDelta != nil else { return }
+            guard horizontal, held.isEmpty, onDrag != nil else { return }
             fingerPending += (point.x - last.x) * Self.fingerSecondsPerPoint
             scheduleFingerFlush()
         case .ended, .cancelled:
             flushFinger()
-            if let start = fingerStart, let last = fingerLast, onDragDelta != nil {
+            if let start = fingerStart, let last = fingerLast, onDrag != nil {
                 log("finger ended phase=\(phase.rawValue) steps=\(fingerSteps) dx=\(Int(last.x - start.x)) "
                     + "dy=\(Int(last.y - start.y)) moved=\(String(format: "%.0f", fingerMoved))s")
             }
@@ -361,9 +225,9 @@ final class RemoteScrubRouter {
         fingerFlush = nil
         let amount = fingerPending
         fingerPending = 0
-        guard amount != 0, let onDragDelta else { return }
+        guard amount != 0, let onDrag else { return }
         fingerMoved += amount
-        onDragDelta(amount)
+        onDrag(amount)
     }
 }
 
@@ -430,64 +294,6 @@ enum ScrubTrace {
     }
 }
 
-/// The tvOS window. It exists to read the remote and the touch surface that SwiftUI does not expose:
-/// presses while a direction is held, and a finger dragged across the touchpad. Everything goes to
-/// `super`, so focus navigation and selection keep working untouched.
-final class RemoteScrubWindow: UIWindow {
-    /// The touch surface is a trackpad and no SwiftUI view is touch-addressable, so the recognizer
-    /// belongs on the window. `cancelsTouchesInView = false` keeps the click pad selecting the
-    /// focused control.
-    private lazy var pan: UIPanGestureRecognizer = {
-        let pan = UIPanGestureRecognizer(target: self, action: #selector(dragged(_:)))
-        pan.cancelsTouchesInView = false
-        // The touch surface is `.indirect` touch, and a recognizer accepts `.direct` only by default.
-        // That default is why a swipe across the pad was never seen. The simulator's mouse is
-        // `.direct`, so both are allowed rather than guessing which surface the touch came from.
-        pan.allowedTouchTypes = [
-            NSNumber(value: UITouch.TouchType.indirect.rawValue),
-            NSNumber(value: UITouch.TouchType.direct.rawValue),
-        ]
-        return pan
-    }()
-
-    // No `init(frame:)`: it is deprecated in tvOS 26, and this window is always built from a scene.
-    override init(windowScene: UIWindowScene) {
-        super.init(windowScene: windowScene)
-        addGestureRecognizer(pan)
-        ScrubTrace.record("window built, pan attached")
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        addGestureRecognizer(pan)
-        ScrubTrace.record("window decoded, pan attached")
-    }
-
-    /// `.began` is where the pad's discrete swipe lands — see `RemoteScrubRouter.swipe` for why the
-    /// absolute path below never runs on a real Apple TV. It stays for a touch source that does report
-    /// a continuous finger, which is what iOS's drag gesture does.
-    @objc private func dragged(_ gesture: UIPanGestureRecognizer) {
-        switch gesture.state {
-        case .began:
-            let translation = gesture.translation(in: nil)
-            let velocity = gesture.velocity(in: nil)
-            RemoteScrubRouter.shared.swipe(dx: translation.x, dy: translation.y,
-                                           vx: velocity.x, vy: velocity.y)
-        case .changed, .ended:
-            RemoteScrubRouter.shared.drag(at: gesture.location(in: nil),
-                                          translation: gesture.translation(in: nil),
-                                          ended: gesture.state == .ended)
-        default:
-            break
-        }
-    }
-
-    override func sendEvent(_ event: UIEvent) {
-        routePresses(of: event, at: "window")
-        super.sendEvent(event)
-    }
-}
-
 /// -1 / +1 for left and right, nil for everything else. Up and down stay focus navigation, and menu,
 /// select and playPause keep going to SwiftUI.
 private func horizontalDirection(of press: UIPress) -> Int? {
@@ -498,24 +304,21 @@ private func horizontalDirection(of press: UIPress) -> Int? {
     }
 }
 
-/// Feeds the router from a raw press event. Every phase is logged, unthrottled: a press is a few events,
-/// and these lines are what shows which capture point sees the press and whether the release arrives.
+/// Feeds the router from a raw press event.
 @MainActor
-private func routePresses(of event: UIEvent, at source: String) {
+private func routePresses(of event: UIEvent) {
     guard let event = event as? UIPressesEvent else { return }
     for press in event.allPresses {
         guard let direction = horizontalDirection(of: press) else { continue }
-        RemoteScrubRouter.shared.log("\(source) press dir=\(direction) phase=\(press.phase.rawValue)")
         switch press.phase {
-        case .began: RemoteScrubRouter.shared.feed(direction, from: source)
-        case .ended, .cancelled: RemoteScrubRouter.shared.release(direction, from: source)
+        case .began: RemoteScrubRouter.shared.feed(direction)
+        case .ended, .cancelled: RemoteScrubRouter.shared.release(direction)
         default: break
         }
     }
 }
 
-/// Hands the pad's raw touches to the router. The app object only, not the window as well: unlike a
-/// press, a touch delta counted twice would move the playhead twice.
+/// Hands the pad's raw touches to the router.
 @MainActor
 private func routeTouches(of event: UIEvent) {
     guard event.type == .touches,
@@ -524,47 +327,17 @@ private func routeTouches(of event: UIEvent) {
 }
 
 /// The app object, set as the principal class by `NSPrincipalClass` in Info.plist. `sendEvent` is where
-/// a press enters the app, ahead of the focus engine and SwiftUI, which is why it can see a press and a
-/// release that no `pressesBegan` override does while the scrubber holds focus. Everything goes to
-/// `super`, so navigation and selection keep working.
+/// presses and touches enter the app, ahead of the focus engine and SwiftUI (see `RemoteScrubRouter`).
+/// Everything goes to `super`, so navigation and selection keep working.
 final class RemoteScrubApplication: UIApplication {
     override init() {
         super.init()
-        ScrubTrace.record("principal class installed")
+        ScrubTrace.record("launched")   // marks each launch in a trace that spans several
     }
 
     override func sendEvent(_ event: UIEvent) {
-        routePresses(of: event, at: "app")
+        routePresses(of: event)
         routeTouches(of: event)
         super.sendEvent(event)
-    }
-}
-
-/// The bar's rect in window coordinates, which SwiftUI never hands a view. A drag needs it to turn a
-/// touch-surface position into a fraction of the bar. The view is inert — no interaction, and the
-/// SwiftUI side keeps hit testing off it — and it reports on layout, so a banner that moves or resizes
-/// is never scrubbed against a stale rect.
-struct RemoteBarFrameProbe: UIViewRepresentable {
-    let onChange: (CGRect) -> Void
-
-    func makeUIView(context: Context) -> BarFrameView { BarFrameView(onChange: onChange) }
-    func updateUIView(_ uiView: BarFrameView, context: Context) { uiView.onChange = onChange }
-}
-
-final class BarFrameView: UIView {
-    var onChange: (CGRect) -> Void
-
-    init(onChange: @escaping (CGRect) -> Void) {
-        self.onChange = onChange
-        super.init(frame: .zero)
-        isUserInteractionEnabled = false
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        guard let window, frame.width > 0 else { return }
-        onChange(convert(bounds, to: window))
     }
 }

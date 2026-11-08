@@ -74,8 +74,6 @@ final class AetherRecordingController: ObservableObject {
     private static let stalledSeekTimeoutSeconds = 5.0
 
     /// A press is hot for this window while its seek has not been issued yet (the debounce gap).
-    /// `ScrubFeedback.step`'s held window — the same definition of "held" the scrubber uses to decide
-    /// how far a press moves the dot.
     private static let previewWindow: TimeInterval = 0.6
 
     /// How long the still stays on screen after a landing has been shown. Short: the landed frame is
