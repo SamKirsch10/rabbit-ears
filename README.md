@@ -6,6 +6,9 @@ A native Apple TV app (with an iPhone/iPad companion) for watching and recording
 
 <img src="assets/live.png" alt="Live TV" width="70%">
 
+## TBA
+App store submission
+
 ## What it does
 
 - **Guide**: a channel grid showing what's on now and next, with a channel filter. Pick a program to watch it live or set it to record.
