@@ -123,7 +123,7 @@ struct LiveTVPlayerView: View {
                isPresented: $confirmStop) {
             Button(nowPlaying?.recordingMark == .scheduled ? "Cancel Recording" : "Stop Recording",
                    role: .destructive) { stopRecording() }
-            Button("Keep Recording", role: .cancel) {}
+            Button("Continue Recording", role: .cancel) {}
         } message: {
             Text(nowPlaying?.recordingMark == .scheduled
                  ? "\"\(nowPlaying?.title ?? channel.name)\" won't be recorded."

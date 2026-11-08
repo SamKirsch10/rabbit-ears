@@ -134,7 +134,7 @@ struct ProgramDetailView: View {
         .sensoryFeedback(.success, trigger: mark)
         .alert(mark == .scheduled ? "Cancel recording?" : "Stop recording?", isPresented: $confirmStop) {
             Button(mark == .scheduled ? "Cancel Recording" : "Stop Recording", role: .destructive) { stop() }
-            Button("Keep Recording", role: .cancel) {}
+            Button("Continue Recording", role: .cancel) {}
         } message: {
             Text(mark == .scheduled
                  ? "\"\(event.title)\" won't be recorded."

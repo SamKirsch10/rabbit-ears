@@ -12,10 +12,10 @@ private let guideTimeFormatter: DateFormatter = {
 private let guideCellRadius: CGFloat = 12
 private let guideCellHeight: CGFloat = 84
 
-/// A guide program being recorded right now, waiting on "Start from Beginning" or "Go to Live".
-private struct RecordingChoice {
+/// A guide program picked with Select, waiting on Watch or Record in the action sheet.
+private struct ProgramChoice {
     let channel: Channel
-    let dvrUuid: String
+    let event: EPGEvent
 }
 
 struct GuideView: View {
@@ -56,7 +56,10 @@ struct GuideView: View {
     // With selectedChannel: a recording in progress on it, played as the live view's rewind buffer.
     @State private var liveRecording: DVR.Entry?
     @State private var liveFromStart = false
-    @State private var pendingChoice: RecordingChoice?
+    @State private var pendingChoice: ProgramChoice?
+    // Set from the action sheet's Stop/Cancel Recording; confirmed before it's sent.
+    @State private var pendingStop: ProgramChoice?
+    @State private var recordBusy = false
     @State private var openError: String?
     @State private var now = Date()
     // Kept separately from the focus state so the hero panel doesn't blank out for
@@ -106,8 +109,9 @@ struct GuideView: View {
                                         now: now,
                                         focusedCellID: $focusedCellID,
                                         onSelect: { channel, event in
-                                            if event?.recordingMark == .recording, let uuid = event?.dvrUuid {
-                                                pendingChoice = RecordingChoice(channel: channel, dvrUuid: uuid)
+                                            // No EPG data to record from: just tune in.
+                                            if let event {
+                                                pendingChoice = ProgramChoice(channel: channel, event: event)
                                             } else {
                                                 watchLive(channel)
                                             }
@@ -186,19 +190,50 @@ struct GuideView: View {
             }
             .hidden()
         )
-        .alert(
-            "This is being recorded",
+        .confirmationDialog(
+            pendingChoice?.event.title ?? "",
             isPresented: Binding(get: { pendingChoice != nil }, set: { if !$0 { pendingChoice = nil } }),
+            titleVisibility: .visible,
             presenting: pendingChoice
         ) { choice in
-            Button("Start from Beginning") { watchRecording(choice, fromStart: true) }
-            Button("Go to Live") { watchRecording(choice, fromStart: false) }
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("Do you want to start from the beginning or go to Live?")
+            let event = choice.event
+            let airing = event.start <= now && now < event.stop
+            // Being recorded: offer the recording from the start as well as live.
+            if event.recordingMark == .recording, event.dvrUuid != nil {
+                Button("Start from Beginning") { watchRecording(choice, fromStart: true) }
+                Button("Go to Live") { watchRecording(choice, fromStart: false) }
+            } else {
+                Button(airing ? "Watch Live" : "Watch Channel") { watchLive(choice.channel) }
+            }
+            switch event.recordingMark {
+            case .recording:
+                Button("Stop Recording", role: .destructive) { askToStop(choice) }
+            case .scheduled:
+                Button("Cancel Recording", role: .destructive) { askToStop(choice) }
+            case nil:
+                if event.stop > now, !recordBusy {
+                    Button("Record") { record(choice) }
+                }
+            }
+            Button("Close", role: .cancel) {}
+        } message: { choice in
+            Text(programMessage(choice.event))
         }
         .alert(
-            "Couldn't open recording",
+            pendingStop?.event.recordingMark == .scheduled ? "Cancel recording?" : "Stop recording?",
+            isPresented: Binding(get: { pendingStop != nil }, set: { if !$0 { pendingStop = nil } }),
+            presenting: pendingStop
+        ) { choice in
+            let scheduled = choice.event.recordingMark == .scheduled
+            Button(scheduled ? "Cancel Recording" : "Stop Recording", role: .destructive) { stop(choice) }
+            Button("Continue Recording", role: .cancel) {}
+        } message: { choice in
+            Text(choice.event.recordingMark == .scheduled
+                 ? "\"\(choice.event.title)\" won't be recorded."
+                 : "\"\(choice.event.title)\" stops recording now. What's been recorded so far is kept.")
+        }
+        .alert(
+            "Something went wrong",
             isPresented: Binding(get: { openError != nil }, set: { if !$0 { openError = nil } })
         ) {
             Button("OK", role: .cancel) {}
@@ -252,13 +287,56 @@ struct GuideView: View {
     }
 
     /// Live, with the recording so far as the rewind buffer, opened at its start or at live.
-    private func watchRecording(_ choice: RecordingChoice, fromStart: Bool) {
-        client.fetchDVREntry(uuid: choice.dvrUuid) { result in
+    private func watchRecording(_ choice: ProgramChoice, fromStart: Bool) {
+        guard let uuid = choice.event.dvrUuid else { return }
+        client.fetchDVREntry(uuid: uuid) { result in
             switch result {
             case .success(let entry?):
                 watchLive(choice.channel, recording: entry, fromStart: fromStart)
             case .success(nil):
                 openError = "Couldn't find this recording on the server."
+            case .failure(let error):
+                openError = error.localizedDescription
+            }
+        }
+    }
+
+    private func programMessage(_ event: EPGEvent) -> String {
+        let times = "\(guideTimeFormatter.string(from: event.start)) \u{2013} \(guideTimeFormatter.string(from: event.stop))"
+        switch event.recordingMark {
+        case .recording: return "\(times)  \u{2022}  Recording now"
+        case .scheduled: return "\(times)  \u{2022}  Set to record"
+        case nil: return times
+        }
+    }
+
+    private func record(_ choice: ProgramChoice) {
+        recordBusy = true
+        client.createRecording(eventID: choice.event.id) { result in
+            recordBusy = false
+            switch result {
+            case .success:
+                load(silent: true)
+            case .failure(let error):
+                openError = error.localizedDescription
+            }
+        }
+    }
+
+    // The action sheet is still going away when its button runs; present the confirmation after.
+    private func askToStop(_ choice: ProgramChoice) {
+        DispatchQueue.main.async { pendingStop = choice }
+    }
+
+    private func stop(_ choice: ProgramChoice) {
+        guard let uuid = choice.event.dvrUuid else {
+            openError = "Couldn't find this recording on the server."
+            return
+        }
+        client.stopRecording(uuid: uuid, isRunning: choice.event.recordingMark == .recording) { result in
+            switch result {
+            case .success:
+                load(silent: true)
             case .failure(let error):
                 openError = error.localizedDescription
             }
