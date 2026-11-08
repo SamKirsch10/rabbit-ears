@@ -1,3 +1,6 @@
 .DS_Store
 debug-*.md
 sdd/*
+
+# Xcode per-user state
+xcuserdata/
