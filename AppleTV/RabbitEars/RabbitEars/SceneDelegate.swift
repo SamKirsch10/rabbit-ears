@@ -1,4 +1,4 @@
-// AppleTV/Switft TVH Client/Switft TVH Client/SceneDelegate.swift
+// AppleTV/RabbitEars/RabbitEars/SceneDelegate.swift
 import UIKit
 import SwiftUI
 

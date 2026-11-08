@@ -1,4 +1,4 @@
-// AppleTV/Switft TVH Client/Switft TVH Client/Client/RemoteScrubRouter.swift
+// AppleTV/RabbitEars/RabbitEars/Client/RemoteScrubRouter.swift
 import AetherEngine
 import SwiftUI
 import UIKit

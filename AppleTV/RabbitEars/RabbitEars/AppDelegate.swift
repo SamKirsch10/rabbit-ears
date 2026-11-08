@@ -1,5 +1,5 @@
 // Adjust AppDelegate to call disconnect instead of cleanup if you wish
-// AppleTV/Switft TVH Client/Switft TVH Client/AppDelegate.swift
+// AppleTV/RabbitEars/RabbitEars/AppDelegate.swift
 import UIKit
 import Alamofire
 

@@ -3,12 +3,12 @@
 # build and run ask which tvOS device or simulator to use. To skip the question, pass its
 # id or name: `make run DEVICE=<id or name>`. Other variables can be overridden the same
 # way, e.g. `make build CONFIG=Release`. The -ios targets do the same for the
-# iPhone/iPad target in the same project (scheme "Switft TVH Client iOS").
+# iPhone/iPad target in the same project (scheme "RabbitEars iOS").
 
-PROJECT   := AppleTV/Switft TVH Client/Switft TVH Client.xcodeproj
-SCHEME    := Switft TVH Client
-SCHEME_IOS := Switft TVH Client iOS
-BUNDLE_ID := site.kirsch.Switft-TVH-Client
+PROJECT   := AppleTV/RabbitEars/RabbitEars.xcodeproj
+SCHEME    := RabbitEars
+SCHEME_IOS := RabbitEars iOS
+BUNDLE_ID := site.kirsch.RabbitEars
 
 # Debug or Release.
 CONFIG ?= Debug
