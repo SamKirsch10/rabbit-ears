@@ -2,9 +2,9 @@
 
 A native Apple TV app (with an iPhone/iPad companion) for watching and recording live TV from a [Tvheadend](https://tvheadend.org) server.
 
-![Guide](assets/guide.png)
+<img src="assets/guide.png" alt="Guide" width="70%">
 
-![Live TV](assets/live.png)
+<img src="assets/live.png" alt="Live TV" width="70%">
 
 ## What it does
 
