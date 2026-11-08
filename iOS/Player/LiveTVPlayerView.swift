@@ -5,11 +5,24 @@ import AetherEngine
 
 // Touch version of the tvOS live banner: tap the video to show or hide the controls. They hide
 // again after 5 seconds while playing, and stay up while paused or scrubbing.
+/// What the live player opens on: a channel, optionally with a recording in progress on it as the
+/// rewind buffer.
+struct LivePlayback: Identifiable {
+    let channel: Channel
+    var recording: DVR.Entry? = nil
+    var startAtBeginning = false
+    var id: String { channel.id + (recording?.id ?? "") }
+}
+
 struct LiveTVPlayerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     let channel: Channel
+    /// A recording of this channel still being made, played as the rewind buffer behind live.
+    var recording: DVR.Entry? = nil
+    /// With a recording: open at its start instead of at live.
+    var startAtBeginning = false
     @StateObject private var live = AetherLiveController()
     @StateObject private var pip = PictureInPicture()
     @State private var nowPlaying: EPGEvent?
@@ -83,7 +96,7 @@ struct LiveTVPlayerView: View {
             UIApplication.shared.isIdleTimerDisabled = true
             loadNowPlaying()
             if let engine = live.engine { pip.bind(engine) }
-            live.connect(channel: channel)
+            live.connect(channel: channel, recording: recording, startAtBeginning: startAtBeginning)
             scheduleHide()
         }
         .onDisappear {
@@ -96,7 +109,7 @@ struct LiveTVPlayerView: View {
                isPresented: $confirmStop) {
             Button(nowPlaying?.recordingMark == .scheduled ? "Cancel Recording" : "Stop Recording",
                    role: .destructive) { stopRecording() }
-            Button("Keep Recording", role: .cancel) {}
+            Button("Continue Recording", role: .cancel) {}
         } message: {
             Text(nowPlaying?.recordingMark == .scheduled
                  ? "\"\(nowPlaying?.title ?? channel.name)\" won't be recorded."

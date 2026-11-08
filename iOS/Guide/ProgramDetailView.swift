@@ -8,6 +8,8 @@ struct ProgramDetailView: View {
     let event: EPGEvent
     let now: Date
     let onWatch: () -> Void
+    /// Watches live with this program's in-progress recording as the rewind buffer, from its start or at live.
+    let onWatchRecording: (DVR.Entry, _ fromStart: Bool) -> Void
     /// Called after a recording is made, stopped or cancelled here, so the guide can refresh its marks.
     let onRecordingChanged: () -> Void
 
@@ -18,13 +20,16 @@ struct ProgramDetailView: View {
     @State private var dvrUuid: String?
     @State private var confirmStop = false
     @State private var recordError: String?
+    @State private var choosingStart = false
 
     init(channel: Channel, event: EPGEvent, now: Date,
-         onWatch: @escaping () -> Void, onRecordingChanged: @escaping () -> Void) {
+         onWatch: @escaping () -> Void, onWatchRecording: @escaping (DVR.Entry, _ fromStart: Bool) -> Void,
+         onRecordingChanged: @escaping () -> Void) {
         self.channel = channel
         self.event = event
         self.now = now
         self.onWatch = onWatch
+        self.onWatchRecording = onWatchRecording
         self.onRecordingChanged = onRecordingChanged
         _mark = State(initialValue: event.recordingMark)
         _dvrUuid = State(initialValue: event.dvrUuid)
@@ -91,7 +96,10 @@ struct ProgramDetailView: View {
                     }
 
                     HStack(spacing: 12) {
-                        Button(action: onWatch) {
+                        Button {
+                            // Being recorded: offer the recording from the start as well as live.
+                            if mark == .recording, dvrUuid != nil { choosingStart = true } else { onWatch() }
+                        } label: {
                             Label(isAiring ? "Watch Live" : "Watch Channel", systemImage: "play.fill")
                                 .frame(maxWidth: .infinity)
                         }
@@ -126,11 +134,35 @@ struct ProgramDetailView: View {
         .sensoryFeedback(.success, trigger: mark)
         .alert(mark == .scheduled ? "Cancel recording?" : "Stop recording?", isPresented: $confirmStop) {
             Button(mark == .scheduled ? "Cancel Recording" : "Stop Recording", role: .destructive) { stop() }
-            Button("Keep Recording", role: .cancel) {}
+            Button("Continue Recording", role: .cancel) {}
         } message: {
             Text(mark == .scheduled
                  ? "\"\(event.title)\" won't be recorded."
                  : "\"\(event.title)\" stops recording now. What's been recorded so far is kept.")
+        }
+        .alert("This is being recorded", isPresented: $choosingStart) {
+            Button("Start from Beginning") { watchRecording(fromStart: true) }
+            Button("Go to Live") { watchRecording(fromStart: false) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Do you want to start from the beginning or go to Live?")
+        }
+    }
+
+    private func watchRecording(fromStart: Bool) {
+        guard let dvrUuid else { return }
+        busy = true
+        recordError = nil
+        TVHClient.sharedInstance.fetchDVREntry(uuid: dvrUuid) { result in
+            busy = false
+            switch result {
+            case .success(let entry?):
+                onWatchRecording(entry, fromStart)
+            case .success(nil):
+                recordError = "Couldn't find this recording on the server."
+            case .failure(let error):
+                recordError = error.localizedDescription
+            }
         }
     }
 

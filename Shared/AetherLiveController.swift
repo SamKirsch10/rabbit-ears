@@ -54,6 +54,14 @@ final class AetherLiveController: ObservableObject {
     private let maxRetunes = 3
 
     private var channel: Channel?
+    /// A recording of this channel still being made: the session reads it from its first byte, so the
+    /// whole recording is the rewind buffer (see `GrowingRecordingReader`).
+    private var recording: DVR.Entry?
+    private var startAtBeginning = false
+    private var seekedToBeginning = false
+    /// The reader has delivered everything recorded so far. Until then the ring is still filling
+    /// from the file, far faster than real time.
+    private var recordingLoaded = false
     private var started = false
     private var loadStarted = Date()
     private var loadTask: Task<Void, Never>?
@@ -81,10 +89,14 @@ final class AetherLiveController: ObservableObject {
 
     // MARK: control
 
-    func connect(channel: Channel) {
+    func connect(channel: Channel, recording: DVR.Entry? = nil, startAtBeginning: Bool = false) {
         guard !started else { return }
         started = true
         self.channel = channel
+        self.recording = recording
+        self.startAtBeginning = startAtBeginning
+        seekedToBeginning = false
+        recordingLoaded = false
         retunes = 0
         load()
     }
@@ -161,6 +173,10 @@ final class AetherLiveController: ObservableObject {
 
     private func load() {
         guard let engine, let channel else { return }
+        if let recording {
+            loadRecording(recording, channel: channel, engine: engine)
+            return
+        }
         guard let request = PlaybackRequest(TVHClient.sharedInstance.streamURL(for: channel)) else {
             state = .failed("Could not build a stream URL for this channel.")
             return
@@ -185,6 +201,62 @@ final class AetherLiveController: ObservableObject {
         }
     }
 
+    /// A live session fed by the recording from its first byte, then the channel live once it stops.
+    private func loadRecording(_ recording: DVR.Entry, channel: Channel, engine: AetherEngine) {
+        let client = TVHClient.sharedInstance
+        guard let file = PlaybackRequest(client.recordingURL(for: recording)),
+              let live = PlaybackRequest(client.streamURL(for: channel)) else {
+            state = .failed("Could not build a playback URL for this recording.")
+            return
+        }
+        let uuid = recording.id
+        let reader = GrowingRecordingReader(
+            fileURL: file.url, liveURL: live.url, headers: file.headers,
+            stillRecording: { reply in
+                DispatchQueue.main.async {
+                    TVHClient.sharedInstance.fetchDVREntry(uuid: uuid) { result in
+                        switch result {
+                        case .success(let entry?): reply(entry.isRecording)
+                        case .success(nil): reply(false)
+                        case .failure: reply(nil)
+                        }
+                    }
+                }
+            },
+            onCaughtUp: { [weak self] in
+                DispatchQueue.main.async { self?.recordingCaughtUp() }
+            })
+        state = .connecting
+        firstFrameSeconds = nil
+        loadStarted = Date()
+        isPlaying = true
+        pausedAt = nil
+        // Room for the whole recording and an hour past it. The bytes, not the seconds, are the real
+        // bound: an explicit budget lifts the engine's 2 GiB default (about 50 minutes of broadcast
+        // MPEG-2), still within a quarter of the free space.
+        let length = max(recording.stop, Date()).timeIntervalSince(recording.start)
+        var options = LoadOptions(isLive: true, dvrWindowSeconds: max(length + 3600, dvrWindowSeconds))
+        options.liveDVRByteBudget = Int.max
+        loadTask?.cancel()
+        loadTask = Task { [weak self] in
+            do {
+                try await engine.load(source: .custom(reader, formatHint: "mpegts"), options: options)
+            } catch is CancellationError {
+            } catch {
+                self?.state = .failed(String(describing: error))
+            }
+        }
+    }
+
+    /// The reader has delivered everything recorded so far, so the ring reaches the live edge.
+    private func recordingCaughtUp() {
+        guard started, recording != nil else { return }
+        recordingLoaded = true
+        guard !startAtBeginning else { return }
+        EngineLog.emit("[Recording] caught up with the recording; going live")
+        goLive()
+    }
+
     /// The engine parks a live session it cannot revive, and only a fresh load recovers it. Bounded,
     /// or a permanently dead channel would turn into a retune loop.
     private func retune() {
@@ -194,6 +266,8 @@ final class AetherLiveController: ObservableObject {
             return
         }
         retunes += 1
+        // A recording session that lost its source starts over as plain live: the buffer is gone.
+        recording = nil
         load()
     }
 
@@ -242,6 +316,10 @@ final class AetherLiveController: ObservableObject {
                 guard let self, ready, firstFrameSeconds == nil else { return }
                 firstFrameSeconds = Date().timeIntervalSince(loadStarted)
                 state = .live
+                if recording != nil, startAtBeginning, !seekedToBeginning {
+                    seekedToBeginning = true
+                    seek(to: 0)
+                }
             }
             .store(in: &cancellables)
 
@@ -267,6 +345,11 @@ final class AetherLiveController: ObservableObject {
         let lower = range?.lowerBound ?? 0
         let upper = range?.upperBound ?? max(time, 0)
         duration = max(upper - lower, 0)
+        // While the recording is still pouring in, the ring is a fraction of it and growing by the
+        // second: show the recording's real length so the playhead doesn't slide backwards.
+        if let recording, !recordingLoaded {
+            duration = max(duration, Date().timeIntervalSince(recording.startReal ?? recording.start))
+        }
         if Date() >= holdDisplayUntil {
             currentTime = min(max(time - lower, 0), duration)
         }

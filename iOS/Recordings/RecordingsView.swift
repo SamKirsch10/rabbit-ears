@@ -9,6 +9,10 @@ struct RecordingsView: View {
     @State private var error: String?
     @State private var playing: DVR.Entry?
     @State private var pendingDelete: DVR.Entry?
+    // A recording in progress: start from its beginning, or go to live?
+    @State private var pendingChoice: DVR.Entry?
+    @State private var liveError: String?
+    @State private var live: LivePlayback?
     @State private var deleteError: String?
 
     var body: some View {
@@ -23,7 +27,9 @@ struct RecordingsView: View {
                 ContentUnavailableView("No Recordings", systemImage: "recordingtape")
             } else {
                 List(entries) { entry in
-                    Button { playing = entry } label: {
+                    Button {
+                        if entry.isRecording { pendingChoice = entry } else { playing = entry }
+                    } label: {
                         RecordingRow(entry: entry)
                     }
                     .foregroundStyle(.primary)
@@ -49,6 +55,10 @@ struct RecordingsView: View {
         .fullScreenCover(item: $playing) { entry in
             RecordingPlayerView(entry: entry)
         }
+        .fullScreenCover(item: $live) { playback in
+            LiveTVPlayerView(channel: playback.channel, recording: playback.recording,
+                             startAtBeginning: playback.startAtBeginning)
+        }
         .task { await load() }
         .alert(
             "Delete recording?",
@@ -61,12 +71,49 @@ struct RecordingsView: View {
             Text("\"\(entry.title)\" and its video file will be removed from the server.")
         }
         .alert(
+            "This is being recorded",
+            isPresented: Binding(get: { pendingChoice != nil }, set: { if !$0 { pendingChoice = nil } }),
+            presenting: pendingChoice
+        ) { entry in
+            Button("Start from Beginning") { watchLive(entry, fromStart: true) }
+            Button("Go to Live") { watchLive(entry, fromStart: false) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Do you want to start from the beginning or go to Live?")
+        }
+        .alert(
+            "Couldn't open Live",
+            isPresented: Binding(get: { liveError != nil }, set: { if !$0 { liveError = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(liveError ?? "")
+        }
+        .alert(
             "Couldn't delete",
             isPresented: Binding(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })
         ) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(deleteError ?? "")
+        }
+    }
+
+    /// A recording still being made plays in the live view, with the recording so far as its rewind buffer.
+    private func watchLive(_ entry: DVR.Entry, fromStart: Bool) {
+        guard let channelID = entry.channel else {
+            liveError = "This recording doesn't say which channel it's from."
+            return
+        }
+        client.fetchChannel(uuid: channelID) { result in
+            switch result {
+            case .success(let channel?):
+                live = LivePlayback(channel: channel, recording: entry, startAtBeginning: fromStart)
+            case .success(nil):
+                liveError = "Couldn't find this recording's channel."
+            case .failure(let err):
+                liveError = err.localizedDescription
+            }
         }
     }
 

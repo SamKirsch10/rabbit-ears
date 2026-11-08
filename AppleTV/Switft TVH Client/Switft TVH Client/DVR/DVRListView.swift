@@ -8,6 +8,10 @@ struct DVRListView: View {
     @State private var error: String?
     @State private var selectedEntry: DVR.Entry?
     @State private var pendingDelete: DVR.Entry?
+    // A recording in progress: start from its beginning, or go to live?
+    @State private var pendingChoice: DVR.Entry?
+    @State private var liveError: String?
+    @State private var live: (channel: Channel, recording: DVR.Entry, fromStart: Bool)?
     // Plain focusable cards (like the guide): a Button would swallow the long press.
     @FocusState private var focusedID: String?
     @State private var deleteError: String?
@@ -31,7 +35,9 @@ struct DVRListView: View {
                                 .focusable(true)
                                 .focusEffectDisabled()
                                 .focused($focusedID, equals: entry.id)
-                                .onTapGesture { selectedEntry = entry }
+                                .onTapGesture {
+                                    if entry.isRecording { pendingChoice = entry } else { selectedEntry = entry }
+                                }
                                 // Hold select: tvOS context menu. Play/Pause: same prompt, directly.
                                 .contextMenu {
                                     Button("Delete Recording", role: .destructive) { pendingDelete = entry }
@@ -67,6 +73,21 @@ struct DVRListView: View {
             ) { EmptyView() }
             .hidden()
         )
+        .background(
+            NavigationLink(
+                destination: Group {
+                    if let live {
+                        LiveTVPlayerView(channel: live.channel, recording: live.recording,
+                                         startAtBeginning: live.fromStart)
+                    }
+                },
+                isActive: Binding(
+                    get: { live != nil },
+                    set: { isActive in if !isActive { live = nil } }
+                )
+            ) { EmptyView() }
+            .hidden()
+        )
         .navigationTitle("DVR")
         .onAppear(perform: load)
         .alert(
@@ -80,12 +101,49 @@ struct DVRListView: View {
             Text("\"\(entry.title)\" and its video file will be removed from the server.")
         }
         .alert(
+            "This is being recorded",
+            isPresented: Binding(get: { pendingChoice != nil }, set: { if !$0 { pendingChoice = nil } }),
+            presenting: pendingChoice
+        ) { entry in
+            Button("Start from Beginning") { watchLive(entry, fromStart: true) }
+            Button("Go to Live") { watchLive(entry, fromStart: false) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Do you want to start from the beginning or go to Live?")
+        }
+        .alert(
+            "Couldn't open Live",
+            isPresented: Binding(get: { liveError != nil }, set: { if !$0 { liveError = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(liveError ?? "")
+        }
+        .alert(
             "Couldn't delete",
             isPresented: Binding(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })
         ) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(deleteError ?? "")
+        }
+    }
+
+    /// A recording still being made plays in the live view, with the recording so far as its rewind buffer.
+    private func watchLive(_ entry: DVR.Entry, fromStart: Bool) {
+        guard let channelID = entry.channel else {
+            liveError = "This recording doesn't say which channel it's from."
+            return
+        }
+        client.fetchChannel(uuid: channelID) { result in
+            switch result {
+            case .success(let channel?):
+                live = (channel, entry, fromStart)
+            case .success(nil):
+                liveError = "Couldn't find this recording's channel."
+            case .failure(let err):
+                liveError = err.localizedDescription
+            }
         }
     }
 

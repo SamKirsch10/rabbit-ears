@@ -9,6 +9,10 @@ struct LiveTVPlayerView: View {
     @Environment(\.dismiss) private var dismiss
 
     let channel: Channel
+    /// A recording of this channel still being made, played as the rewind buffer behind live.
+    var recording: DVR.Entry? = nil
+    /// With a recording: open at its start instead of at live.
+    var startAtBeginning = false
     @StateObject private var live = AetherLiveController()
     @State private var nowPlaying: EPGEvent?
     @State private var isRecording = false
@@ -110,7 +114,7 @@ struct LiveTVPlayerView: View {
             interact()
             bannerFocus = .play
             loadNowPlaying()
-            live.connect(channel: channel)
+            live.connect(channel: channel, recording: recording, startAtBeginning: startAtBeginning)
         }
         .onDisappear {
             live.disconnect()
@@ -119,7 +123,7 @@ struct LiveTVPlayerView: View {
                isPresented: $confirmStop) {
             Button(nowPlaying?.recordingMark == .scheduled ? "Cancel Recording" : "Stop Recording",
                    role: .destructive) { stopRecording() }
-            Button("Keep Recording", role: .cancel) {}
+            Button("Continue Recording", role: .cancel) {}
         } message: {
             Text(nowPlaying?.recordingMark == .scheduled
                  ? "\"\(nowPlaying?.title ?? channel.name)\" won't be recorded."
