@@ -166,7 +166,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				167DFAC43092CBB600B894BB /* XCRemoteSwiftPackageReference "Alamofire" */,
-				167DFAE03092CBB600B894BB /* XCLocalSwiftPackageReference "../../AetherEngine" */,
+				167DFAE03092CBB600B894BB /* XCRemoteSwiftPackageReference "AetherEngine" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 167DFAB13092CB5400B894BB /* Products */;
@@ -488,13 +488,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		167DFAE03092CBB600B894BB /* XCLocalSwiftPackageReference "../../AetherEngine" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../AetherEngine;
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCRemoteSwiftPackageReference section */
 		167DFAC43092CBB600B894BB /* XCRemoteSwiftPackageReference "Alamofire" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -502,6 +495,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 5.12.2;
+			};
+		};
+		167DFAE03092CBB600B894BB /* XCRemoteSwiftPackageReference "AetherEngine" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/superuser404notfound/AetherEngine";
+			requirement = {
+				kind = revision;
+				revision = 5632b397d1117bfd4b6970300e5ac0af9edd4727;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -514,7 +515,7 @@
 		};
 		167DFAE13092CBB600B894BB /* AetherEngine */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 167DFAE03092CBB600B894BB /* XCLocalSwiftPackageReference "../../AetherEngine" */;
+			package = 167DFAE03092CBB600B894BB /* XCRemoteSwiftPackageReference "AetherEngine" */;
 			productName = AetherEngine;
 		};
 		6B1CD2FDF2F84D28A6A2B2B1 /* Alamofire */ = {
@@ -524,7 +525,7 @@
 		};
 		B5CE0E7959F1454F9FC20FAC /* AetherEngine */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 167DFAE03092CBB600B894BB /* XCLocalSwiftPackageReference "../../AetherEngine" */;
+			package = 167DFAE03092CBB600B894BB /* XCRemoteSwiftPackageReference "AetherEngine" */;
 			productName = AetherEngine;
 		};
 /* End XCSwiftPackageProductDependency section */

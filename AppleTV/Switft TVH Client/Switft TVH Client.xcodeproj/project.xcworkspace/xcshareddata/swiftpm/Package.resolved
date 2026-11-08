@@ -1,6 +1,14 @@
 {
-  "originHash" : "66fb18d159ee13e2f25e1022f39a42b0a674d584fe9be54d6ad4ef625ea8fd58",
+  "originHash" : "95e80d31ca03826e08d5dc2288432034e16f66d102cd2144ba4918b33dede09c",
   "pins" : [
+    {
+      "identity" : "aetherengine",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/superuser404notfound/AetherEngine",
+      "state" : {
+        "revision" : "5632b397d1117bfd4b6970300e5ac0af9edd4727"
+      }
+    },
     {
       "identity" : "alamofire",
       "kind" : "remoteSourceControl",
@@ -24,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/superuser404notfound/LibDovi",
       "state" : {
-        "revision" : "0d7cce1d6836a30d13a3a2326e50a153af53f014",
-        "version" : "2.1.0"
+        "revision" : "caff700968700467c089a3f38c8b4180620518b5",
+        "version" : "2.2.0"
       }
     },
     {
