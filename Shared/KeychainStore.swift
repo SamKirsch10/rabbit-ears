@@ -4,7 +4,7 @@ import Security
 
 // Passwords are credentials, not preferences, so they go in the Keychain rather than UserDefaults.
 enum KeychainStore {
-    private static let service = "site.kirsch.Switft-TVH-Client"
+    private static let service = "site.kirsch.RabbitEars"
 
     static func set(_ value: String, forKey key: String) {
         let query: [String: Any] = [

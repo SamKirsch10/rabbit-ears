@@ -14,17 +14,17 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		167DFAB03092CB5400B894BB /* Switft TVH Client.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Switft TVH Client.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		BFC707A771F046F7929CCEDC /* Switft TVH Client.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Switft TVH Client.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		167DFAB03092CB5400B894BB /* RabbitEars.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RabbitEars.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BFC707A771F046F7929CCEDC /* RabbitEars.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RabbitEars.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		AA3B8C64AF13458CA1E8C4D7 /* Exceptions for "iOS" folder in "Switft TVH Client iOS" target */ = {
+		AA3B8C64AF13458CA1E8C4D7 /* Exceptions for "iOS" folder in "RabbitEars iOS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 1A534A8DCEB94D7D9CAFBB9E /* Switft TVH Client iOS */;
+			target = 1A534A8DCEB94D7D9CAFBB9E /* RabbitEars iOS */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -35,15 +35,15 @@
 			path = ../../Shared;
 			sourceTree = "<group>";
 		};
-		167DFAB23092CB5400B894BB /* Switft TVH Client */ = {
+		167DFAB23092CB5400B894BB /* RabbitEars */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Switft TVH Client";
+			path = "RabbitEars";
 			sourceTree = "<group>";
 		};
 		9E5D5B02D6424911AFADD3DE /* iOS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				AA3B8C64AF13458CA1E8C4D7 /* Exceptions for "iOS" folder in "Switft TVH Client iOS" target */,
+				AA3B8C64AF13458CA1E8C4D7 /* Exceptions for "iOS" folder in "RabbitEars iOS" target */,
 			);
 			name = iOS;
 			path = ../../iOS;
@@ -73,7 +73,7 @@
 			isa = PBXGroup;
 			children = (
 				0F4B66035F234B269C51D1D5 /* Shared */,
-				167DFAB23092CB5400B894BB /* Switft TVH Client */,
+				167DFAB23092CB5400B894BB /* RabbitEars */,
 				9E5D5B02D6424911AFADD3DE /* iOS */,
 				167DFAB13092CB5400B894BB /* Products */,
 			);
@@ -82,8 +82,8 @@
 		167DFAB13092CB5400B894BB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				167DFAB03092CB5400B894BB /* Switft TVH Client.app */,
-				BFC707A771F046F7929CCEDC /* Switft TVH Client.app */,
+				167DFAB03092CB5400B894BB /* RabbitEars.app */,
+				BFC707A771F046F7929CCEDC /* RabbitEars.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -91,9 +91,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		167DFAAF3092CB5400B894BB /* Switft TVH Client */ = {
+		167DFAAF3092CB5400B894BB /* RabbitEars */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 167DFABB3092CB5500B894BB /* Build configuration list for PBXNativeTarget "Switft TVH Client" */;
+			buildConfigurationList = 167DFABB3092CB5500B894BB /* Build configuration list for PBXNativeTarget "RabbitEars" */;
 			buildPhases = (
 				167DFAAC3092CB5400B894BB /* Sources */,
 				167DFAAD3092CB5400B894BB /* Frameworks */,
@@ -103,20 +103,20 @@
 			);
 			fileSystemSynchronizedGroups = (
 				0F4B66035F234B269C51D1D5 /* Shared */,
-				167DFAB23092CB5400B894BB /* Switft TVH Client */,
+				167DFAB23092CB5400B894BB /* RabbitEars */,
 			);
-			name = "Switft TVH Client";
+			name = "RabbitEars";
 			packageProductDependencies = (
 				167DFAC53092CBB600B894BB /* Alamofire */,
 				167DFAE13092CBB600B894BB /* AetherEngine */,
 			);
-			productName = "Switft TVH Client";
-			productReference = 167DFAB03092CB5400B894BB /* Switft TVH Client.app */;
+			productName = "RabbitEars";
+			productReference = 167DFAB03092CB5400B894BB /* RabbitEars.app */;
 			productType = "com.apple.product-type.application";
 		};
-		1A534A8DCEB94D7D9CAFBB9E /* Switft TVH Client iOS */ = {
+		1A534A8DCEB94D7D9CAFBB9E /* RabbitEars iOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3C4B77BA2ACB4730B9AB8A5A /* Build configuration list for PBXNativeTarget "Switft TVH Client iOS" */;
+			buildConfigurationList = 3C4B77BA2ACB4730B9AB8A5A /* Build configuration list for PBXNativeTarget "RabbitEars iOS" */;
 			buildPhases = (
 				1A03AA3AAA784C7EB4D1F4FE /* Sources */,
 				A28AA0DC23ED460A8EE6253F /* Frameworks */,
@@ -128,13 +128,13 @@
 				0F4B66035F234B269C51D1D5 /* Shared */,
 				9E5D5B02D6424911AFADD3DE /* iOS */,
 			);
-			name = "Switft TVH Client iOS";
+			name = "RabbitEars iOS";
 			packageProductDependencies = (
 				6B1CD2FDF2F84D28A6A2B2B1 /* Alamofire */,
 				B5CE0E7959F1454F9FC20FAC /* AetherEngine */,
 			);
-			productName = "Switft TVH Client";
-			productReference = BFC707A771F046F7929CCEDC /* Switft TVH Client.app */;
+			productName = "RabbitEars";
+			productReference = BFC707A771F046F7929CCEDC /* RabbitEars.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -155,7 +155,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 167DFAAB3092CB5400B894BB /* Build configuration list for PBXProject "Switft TVH Client" */;
+			buildConfigurationList = 167DFAAB3092CB5400B894BB /* Build configuration list for PBXProject "RabbitEars" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -173,8 +173,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				167DFAAF3092CB5400B894BB /* Switft TVH Client */,
-				1A534A8DCEB94D7D9CAFBB9E /* Switft TVH Client iOS */,
+				167DFAAF3092CB5400B894BB /* RabbitEars */,
+				1A534A8DCEB94D7D9CAFBB9E /* RabbitEars iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -206,7 +206,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		167DFAB93092CB5500B894BB /* Debug configuration for PBXProject "Switft TVH Client" */ = {
+		167DFAB93092CB5500B894BB /* Debug configuration for PBXProject "RabbitEars" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -270,7 +270,7 @@
 			};
 			name = Debug;
 		};
-		167DFABA3092CB5500B894BB /* Release configuration for PBXProject "Switft TVH Client" */ = {
+		167DFABA3092CB5500B894BB /* Release configuration for PBXProject "RabbitEars" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -327,7 +327,7 @@
 			};
 			name = Release;
 		};
-		167DFABC3092CB5500B894BB /* Debug configuration for PBXNativeTarget "Switft TVH Client" */ = {
+		167DFABC3092CB5500B894BB /* Debug configuration for PBXNativeTarget "RabbitEars" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
@@ -345,7 +345,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.Switft-TVH-Client";
+				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.RabbitEars";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -357,7 +357,7 @@
 			};
 			name = Debug;
 		};
-		167DFABD3092CB5500B894BB /* Release configuration for PBXNativeTarget "Switft TVH Client" */ = {
+		167DFABD3092CB5500B894BB /* Release configuration for PBXNativeTarget "RabbitEars" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
@@ -375,7 +375,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.Switft-TVH-Client";
+				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.RabbitEars";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -387,7 +387,7 @@
 			};
 			name = Release;
 		};
-		B1767D3B866B459E8F3344CC /* Release configuration for PBXNativeTarget "Switft TVH Client iOS" */ = {
+		B1767D3B866B459E8F3344CC /* Release configuration for PBXNativeTarget "RabbitEars iOS" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -408,8 +408,8 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.Switft-TVH-Client";
-				PRODUCT_NAME = "Switft TVH Client";
+				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.RabbitEars";
+				PRODUCT_NAME = "RabbitEars";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -423,7 +423,7 @@
 			};
 			name = Release;
 		};
-		D5E6F0B1806241208D048D07 /* Debug configuration for PBXNativeTarget "Switft TVH Client iOS" */ = {
+		D5E6F0B1806241208D048D07 /* Debug configuration for PBXNativeTarget "RabbitEars iOS" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -444,8 +444,8 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.Switft-TVH-Client";
-				PRODUCT_NAME = "Switft TVH Client";
+				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.RabbitEars";
+				PRODUCT_NAME = "RabbitEars";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -462,27 +462,27 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		167DFAAB3092CB5400B894BB /* Build configuration list for PBXProject "Switft TVH Client" */ = {
+		167DFAAB3092CB5400B894BB /* Build configuration list for PBXProject "RabbitEars" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				167DFAB93092CB5500B894BB /* Debug configuration for PBXProject "Switft TVH Client" */,
-				167DFABA3092CB5500B894BB /* Release configuration for PBXProject "Switft TVH Client" */,
+				167DFAB93092CB5500B894BB /* Debug configuration for PBXProject "RabbitEars" */,
+				167DFABA3092CB5500B894BB /* Release configuration for PBXProject "RabbitEars" */,
 			);
 			defaultConfigurationName = Release;
 		};
-		167DFABB3092CB5500B894BB /* Build configuration list for PBXNativeTarget "Switft TVH Client" */ = {
+		167DFABB3092CB5500B894BB /* Build configuration list for PBXNativeTarget "RabbitEars" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				167DFABC3092CB5500B894BB /* Debug configuration for PBXNativeTarget "Switft TVH Client" */,
-				167DFABD3092CB5500B894BB /* Release configuration for PBXNativeTarget "Switft TVH Client" */,
+				167DFABC3092CB5500B894BB /* Debug configuration for PBXNativeTarget "RabbitEars" */,
+				167DFABD3092CB5500B894BB /* Release configuration for PBXNativeTarget "RabbitEars" */,
 			);
 			defaultConfigurationName = Release;
 		};
-		3C4B77BA2ACB4730B9AB8A5A /* Build configuration list for PBXNativeTarget "Switft TVH Client iOS" */ = {
+		3C4B77BA2ACB4730B9AB8A5A /* Build configuration list for PBXNativeTarget "RabbitEars iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				D5E6F0B1806241208D048D07 /* Debug configuration for PBXNativeTarget "Switft TVH Client iOS" */,
-				B1767D3B866B459E8F3344CC /* Release configuration for PBXNativeTarget "Switft TVH Client iOS" */,
+				D5E6F0B1806241208D048D07 /* Debug configuration for PBXNativeTarget "RabbitEars iOS" */,
+				B1767D3B866B459E8F3344CC /* Release configuration for PBXNativeTarget "RabbitEars iOS" */,
 			);
 			defaultConfigurationName = Release;
 		};

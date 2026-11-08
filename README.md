@@ -1,4 +1,4 @@
-# Swift TVH Client
+# Rabbit Ears
 
 A native Apple TV app (with an iPhone/iPad companion) for watching and recording live TV from a [Tvheadend](https://tvheadend.org) server.
 
@@ -39,4 +39,4 @@ make run-ios    # the same for an iPhone/iPad or iOS simulator
 make help       # every target
 ```
 
-The project is `AppleTV/Switft TVH Client/Switft TVH Client.xcodeproj`. The first build downloads AetherEngine and its FFmpeg binaries, which takes a few minutes.
+The project is `AppleTV/RabbitEars/RabbitEars.xcodeproj`. The first build downloads AetherEngine and its FFmpeg binaries, which takes a few minutes.
