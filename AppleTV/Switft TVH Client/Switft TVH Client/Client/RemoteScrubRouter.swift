@@ -62,12 +62,9 @@ final class RemoteScrubRouter {
     private var lastTick = Date.distantPast
     private var runMoved: TimeInterval = 0
     private var pump: Task<Void, Never>?
-    /// Every witness this router emits. The simulator is read through the log stream;
-    /// a real Apple TV cannot be streamed from the Mac, so the same lines also go to `ScrubTrace` and
-    /// are pulled out of the app's container afterwards.
+    /// Every witness this router emits, read through the simulator's log stream.
     func log(_ line: String) {
         EngineLog.emit(line)
-        ScrubTrace.record(line)
     }
 
     /// The bar claiming the remote. Both closures are the bar's own, because the bar owns its
@@ -231,69 +228,6 @@ final class RemoteScrubRouter {
     }
 }
 
-/// The scrub lines, written to the app's own container.
-///
-/// A real Apple TV's log stream cannot be read from the Mac — there is no console path to a box on the
-/// network — so the same lines that `os_log` gives the simulator are appended here and pulled back with:
-///
-///   xcrun devicectl device copy from --device <udid> --domain-type appDataContainer \
-///     --domain-identifier site.kirsch.Switft-TVH-Client --source tmp/scrub-trace.log \
-///     --destination /tmp/scrub-trace.log
-///
-/// `tmp` rather than `Documents`: the engine already writes its DVR segments there, so that directory is
-/// proven writable and readable through devicectl on this box. Documents came back empty even for a
-/// launch marker, so the first version of this never landed.
-///
-/// Append rather than rewrite per line: a hold emits ~10 lines a second and rewriting the file each time
-/// is what a trace should not cost. The file is capped so weeks of use never grow it.
-enum ScrubTrace {
-    private static let name = "scrub-trace.log"
-    private static let directories: [URL?] = [
-        FileManager.default.temporaryDirectory,
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
-    ]
-    private static let cap = 128 * 1024
-    private static let stamp: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss.SSS"
-        return formatter
-    }()
-
-    /// The directory that accepted the first line; later lines go to the same place rather than
-    /// re-testing every candidate ~10 times a second during a hold.
-    private static var chosen: URL?
-
-    static func record(_ line: String) {
-        let data = Data("\(stamp.string(from: Date())) \(line)\n".utf8)
-        if let url = chosen { append(data, to: url); return }
-        for directory in directories {
-            guard let directory else { continue }
-            let url = directory.appendingPathComponent(name)
-            if append(data, to: url) {
-                chosen = url
-                record("trace at \(url.path)")
-                return
-            }
-        }
-    }
-
-    /// Appends, creating the file if it is not there yet. Returns whether the line landed — a false
-    /// answer is what makes the next candidate directory worth trying.
-    @discardableResult
-    private static func append(_ data: Data, to url: URL) -> Bool {
-        if let size = try? Data(contentsOf: url), size.count > cap {
-            return (try? data.write(to: url)) != nil   // restart rather than grow it forever
-        }
-        if let handle = try? FileHandle(forWritingTo: url) {
-            handle.seekToEndOfFile()
-            handle.write(data)
-            try? handle.close()
-            return true
-        }
-        return (try? data.write(to: url)) != nil       // first line creates the file
-    }
-}
-
 /// -1 / +1 for left and right, nil for everything else. Up and down stay focus navigation, and menu,
 /// select and playPause keep going to SwiftUI.
 private func horizontalDirection(of press: UIPress) -> Int? {
@@ -330,11 +264,6 @@ private func routeTouches(of event: UIEvent) {
 /// presses and touches enter the app, ahead of the focus engine and SwiftUI (see `RemoteScrubRouter`).
 /// Everything goes to `super`, so navigation and selection keep working.
 final class RemoteScrubApplication: UIApplication {
-    override init() {
-        super.init()
-        ScrubTrace.record("launched")   // marks each launch in a trace that spans several
-    }
-
     override func sendEvent(_ event: UIEvent) {
         routePresses(of: event)
         routeTouches(of: event)
