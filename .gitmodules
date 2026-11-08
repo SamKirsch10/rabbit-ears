@@ -1,4 +1,0 @@
-[submodule "AetherEngine"]
-	path = AetherEngine
-	url = https://github.com/SamKirsch10/AetherEngine.git
-	branch = feat/software-dvr-relaxed-cap
