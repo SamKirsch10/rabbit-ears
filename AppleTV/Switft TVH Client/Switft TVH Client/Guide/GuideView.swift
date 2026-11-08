@@ -12,6 +12,12 @@ private let guideTimeFormatter: DateFormatter = {
 private let guideCellRadius: CGFloat = 12
 private let guideCellHeight: CGFloat = 84
 
+/// A guide program being recorded right now, waiting on "Start from Beginning" or "Go to Live".
+private struct RecordingChoice {
+    let channel: Channel
+    let dvrUuid: String
+}
+
 struct GuideView: View {
     @ObservedObject var filter: GuideFilter
     private let client = TVHClient.sharedInstance
@@ -47,6 +53,11 @@ struct GuideView: View {
     @State private var loading = true
     @State private var error: String?
     @State private var selectedChannel: Channel?
+    // With selectedChannel: a recording in progress on it, played as the live view's rewind buffer.
+    @State private var liveRecording: DVR.Entry?
+    @State private var liveFromStart = false
+    @State private var pendingChoice: RecordingChoice?
+    @State private var openError: String?
     @State private var now = Date()
     // Kept separately from the focus state so the hero panel doesn't blank out for
     // the instant focus is between two cells.
@@ -94,9 +105,12 @@ struct GuideView: View {
                                         rowWidth: rowWidth,
                                         now: now,
                                         focusedCellID: $focusedCellID,
-                                        onSelect: { channel in
-                                            lastOpenedChannelID = channel.id
-                                            selectedChannel = channel
+                                        onSelect: { channel, event in
+                                            if event?.recordingMark == .recording, let uuid = event?.dvrUuid {
+                                                pendingChoice = RecordingChoice(channel: channel, dvrUuid: uuid)
+                                            } else {
+                                                watchLive(channel)
+                                            }
                                         }
                                     )
                                 }
@@ -154,18 +168,43 @@ struct GuideView: View {
             NavigationLink(
                 destination: Group {
                     if let selectedChannel {
-                        LiveTVPlayerView(channel: selectedChannel)
+                        LiveTVPlayerView(channel: selectedChannel, recording: liveRecording,
+                                         startAtBeginning: liveFromStart)
                     }
                 },
                 isActive: Binding(
                     get: { selectedChannel != nil },
-                    set: { isActive in if !isActive { selectedChannel = nil } }
+                    set: { isActive in
+                        if !isActive {
+                            selectedChannel = nil
+                            liveRecording = nil
+                        }
+                    }
                 )
             ) {
                 EmptyView()
             }
             .hidden()
         )
+        .alert(
+            "This is being recorded",
+            isPresented: Binding(get: { pendingChoice != nil }, set: { if !$0 { pendingChoice = nil } }),
+            presenting: pendingChoice
+        ) { choice in
+            Button("Start from Beginning") { watchRecording(choice, fromStart: true) }
+            Button("Go to Live") { watchRecording(choice, fromStart: false) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Do you want to start from the beginning or go to Live?")
+        }
+        .alert(
+            "Couldn't open recording",
+            isPresented: Binding(get: { openError != nil }, set: { if !$0 { openError = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(openError ?? "")
+        }
         .navigationTitle("Guide")
         .onAppear {
             NSLog("Guide: onAppear channels=%d last=%@", channels.count, lastOpenedChannelID ?? "nil")
@@ -202,6 +241,27 @@ struct GuideView: View {
         }
         .onChange(of: focusedCellID) { _, newValue in
             updateHero(for: newValue)
+        }
+    }
+
+    private func watchLive(_ channel: Channel, recording: DVR.Entry? = nil, fromStart: Bool = false) {
+        lastOpenedChannelID = channel.id
+        liveRecording = recording
+        liveFromStart = fromStart
+        selectedChannel = channel
+    }
+
+    /// Live, with the recording so far as the rewind buffer, opened at its start or at live.
+    private func watchRecording(_ choice: RecordingChoice, fromStart: Bool) {
+        client.fetchDVREntry(uuid: choice.dvrUuid) { result in
+            switch result {
+            case .success(let entry?):
+                watchLive(choice.channel, recording: entry, fromStart: fromStart)
+            case .success(nil):
+                openError = "Couldn't find this recording on the server."
+            case .failure(let error):
+                openError = error.localizedDescription
+            }
         }
     }
 
@@ -485,7 +545,7 @@ private struct GuideRow: View {
     let rowWidth: CGFloat
     let now: Date
     var focusedCellID: FocusState<String?>.Binding
-    let onSelect: (Channel) -> Void
+    let onSelect: (Channel, EPGEvent?) -> Void
 
     private var rowFocused: Bool {
         focusedCellID.wrappedValue?.hasPrefix(channel.id + "|") == true
@@ -524,7 +584,7 @@ private struct GuideRow: View {
                     .focusEffectDisabled()
                     .focused(focusedCellID, equals: cellID)
                     .onTapGesture {
-                        onSelect(channel)
+                        onSelect(channel, segment.event)
                     }
                 }
             }

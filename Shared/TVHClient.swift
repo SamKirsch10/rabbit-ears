@@ -81,7 +81,21 @@ class TVHClient {
             }
     }
 
+    /// The DVR entry with this uuid, or nil if the server doesn't have it.
+    func fetchDVREntry(uuid: String, completion: @escaping (Result<DVR.Entry?, Error>) -> Void) {
+        fetchDVREntries { result in
+            completion(result.map { entries in entries.first { $0.id == uuid } })
+        }
+    }
+
     // MARK: - Channels
+    /// The channel with this uuid, or nil if the server doesn't have it.
+    func fetchChannel(uuid: String, completion: @escaping (Result<Channel?, Error>) -> Void) {
+        fetchChannels { result in
+            completion(result.map { channels in channels.first { $0.id == uuid } })
+        }
+    }
+
     func fetchChannels(completion: @escaping (Result<[Channel], Error>) -> Void) {
         guard let baseURL else {
             completion(.failure(TVHClientError.notConfigured))
@@ -478,11 +492,15 @@ nonisolated struct DVR: Decodable {
         let description: String
         let start: Date
         let stop: Date
+        /// When the file really starts: `start` less the configured pre-recording padding.
+        let startReal: Date?
         /// The EPG event this entry was made from, if any.
         let broadcast: Int?
         /// "scheduled", "recording", "completed", "completedError", ...
         let schedStatus: String?
         let filesize: Int64?
+        /// The recorded channel's uuid.
+        let channel: String?
 
         private enum CodingKeys: String, CodingKey {
             case id = "uuid"
@@ -490,9 +508,11 @@ nonisolated struct DVR: Decodable {
             case description = "disp_description"
             case start
             case stop
+            case startReal = "start_real"
             case broadcast
             case schedStatus = "sched_status"
             case filesize
+            case channel
         }
 
         init(from decoder: Decoder) throws {
@@ -503,13 +523,17 @@ nonisolated struct DVR: Decodable {
             broadcast = try? container.decode(Int.self, forKey: .broadcast)
             schedStatus = try? container.decode(String.self, forKey: .schedStatus)
             filesize = try? container.decode(Int64.self, forKey: .filesize)
+            channel = try? container.decode(String.self, forKey: .channel)
             let startEpoch = try container.decode(TimeInterval.self, forKey: .start)
             let stopEpoch = try container.decode(TimeInterval.self, forKey: .stop)
             start = Date(timeIntervalSince1970: startEpoch)
             stop = Date(timeIntervalSince1970: stopEpoch)
+            startReal = (try? container.decode(TimeInterval.self, forKey: .startReal)).map(Date.init(timeIntervalSince1970:))
         }
 
         /// Done recording, successfully or not; the file no longer grows.
         var isFinished: Bool { schedStatus?.hasPrefix("completed") == true }
+        /// Being recorded right now: the file is still growing.
+        var isRecording: Bool { schedStatus == "recording" }
     }
 }

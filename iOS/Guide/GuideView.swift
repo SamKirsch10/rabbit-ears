@@ -33,10 +33,10 @@ struct GuideView: View {
     @State private var loading = true
     @State private var error: String?
     @State private var now = Date()
-    @State private var playing: Channel?
+    @State private var playing: LivePlayback?
     @State private var selected: ProgramSelection?
     // Set by the details sheet's Watch button; the player opens once the sheet is gone.
-    @State private var playAfterSheet: Channel?
+    @State private var playAfterSheet: LivePlayback?
     @State private var showingFilter = false
     @State private var showingServer = false
     @State private var position = ScrollPosition(edge: .leading)
@@ -100,20 +100,26 @@ struct GuideView: View {
             }
         }
         .sheet(item: $selected, onDismiss: {
-            if let channel = playAfterSheet {
+            if let playback = playAfterSheet {
                 playAfterSheet = nil
-                playing = channel
+                playing = playback
             }
         }) { selection in
             ProgramDetailView(channel: selection.channel, event: selection.event, now: now,
                               onWatch: {
-                                  playAfterSheet = selection.channel
+                                  playAfterSheet = LivePlayback(channel: selection.channel)
+                                  selected = nil
+                              },
+                              onWatchRecording: { entry, fromStart in
+                                  playAfterSheet = LivePlayback(channel: selection.channel, recording: entry,
+                                                                startAtBeginning: fromStart)
                                   selected = nil
                               },
                               onRecordingChanged: { load(silent: true) })
         }
-        .fullScreenCover(item: $playing) { channel in
-            LiveTVPlayerView(channel: channel)
+        .fullScreenCover(item: $playing) { playback in
+            LiveTVPlayerView(channel: playback.channel, recording: playback.recording,
+                             startAtBeginning: playback.startAtBeginning)
         }
         .onAppear {
             load(silent: !channels.isEmpty)
@@ -154,7 +160,7 @@ struct GuideView: View {
                                 labelWidth: labelWidth,
                                 rowHeight: rowHeight,
                                 showsName: regular,
-                                onPlay: { playing = channel },
+                                onPlay: { playing = LivePlayback(channel: channel) },
                                 onSelect: { event in selected = ProgramSelection(channel: channel, event: event) }
                             )
                         }
