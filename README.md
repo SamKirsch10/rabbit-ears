@@ -5,6 +5,7 @@ A native Apple TV app (with an iPhone/iPad companion) for watching and recording
 ### Apple TV
 
 #### Guide
+(with channel filters applied)
 <img src="assets/guide.png" alt="Guide" width="70%">
 
 #### Live View
