@@ -4,18 +4,24 @@ A native Apple TV app (with an iPhone/iPad companion) for watching and recording
 
 ### Apple TV
 
+#### Guide
 <img src="assets/guide.png" alt="Guide" width="70%">
 
+#### Live View
 <img src="assets/live.png" alt="Live TV" width="70%">
 
+#### Top Shef Tiles
 <img src="assets/top-shelf.png" alt="Top Shelf" width="70%">
 
 ### iPhone
 
+#### Guide
 <img src="assets/ios-guide.png" alt="Guide" width="30%"> <img src="assets/ios-watch.png" alt="Program details with Watch Live and Record" width="30%">
 
+#### Guide Landscape
 <img src="assets/ios-guide-landscape.png" alt="Guide in landscape" width="70%">
 
+#### Live View
 <img src="assets/ios-landscape-live.png" alt="Live TV in landscape" width="70%">
 
 ## TBA
