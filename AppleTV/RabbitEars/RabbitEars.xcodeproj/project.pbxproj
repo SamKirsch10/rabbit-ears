@@ -7,13 +7,39 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E1A0000000000000000000A1 /* RabbitEarsTopShelf.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E1A0000000000000000000A2 /* RabbitEarsTopShelf.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		167DFAC63092CBB600B894BB /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 167DFAC53092CBB600B894BB /* Alamofire */; };
 		167DFAE23092CBB600B894BB /* AetherEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 167DFAE13092CBB600B894BB /* AetherEngine */; };
 		84C92AECD5244101A92D305F /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 6B1CD2FDF2F84D28A6A2B2B1 /* Alamofire */; };
 		C2B31CD9A8E3473DB59ECA21 /* AetherEngine in Frameworks */ = {isa = PBXBuildFile; productRef = B5CE0E7959F1454F9FC20FAC /* AetherEngine */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		E1A0000000000000000000A3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 167DFAA83092CB5400B894BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E1A0000000000000000000A4;
+			remoteInfo = "RabbitEars TopShelf";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E1A0000000000000000000A5 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E1A0000000000000000000A1 /* RabbitEarsTopShelf.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		E1A0000000000000000000A2 /* RabbitEarsTopShelf.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RabbitEarsTopShelf.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		167DFAB03092CB5400B894BB /* RabbitEars.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RabbitEars.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFC707A771F046F7929CCEDC /* RabbitEars.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RabbitEars.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -29,6 +55,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		E1A0000000000000000000A6 /* TopShelf */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TopShelf;
+			sourceTree = "<group>";
+		};
 		0F4B66035F234B269C51D1D5 /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			name = Shared;
@@ -52,6 +83,11 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		E1A0000000000000000000A7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 		167DFAAD3092CB5400B894BB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
@@ -75,6 +111,7 @@
 				0F4B66035F234B269C51D1D5 /* Shared */,
 				167DFAB23092CB5400B894BB /* RabbitEars */,
 				9E5D5B02D6424911AFADD3DE /* iOS */,
+				E1A0000000000000000000A6 /* TopShelf */,
 				167DFAB13092CB5400B894BB /* Products */,
 			);
 			sourceTree = "<group>";
@@ -84,6 +121,7 @@
 			children = (
 				167DFAB03092CB5400B894BB /* RabbitEars.app */,
 				BFC707A771F046F7929CCEDC /* RabbitEars.app */,
+				E1A0000000000000000000A2 /* RabbitEarsTopShelf.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -98,8 +136,12 @@
 				167DFAAC3092CB5400B894BB /* Sources */,
 				167DFAAD3092CB5400B894BB /* Frameworks */,
 				167DFAAE3092CB5400B894BB /* Resources */,
+				E1A0000000000000000000A5 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				E1A0000000000000000000AA /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				0F4B66035F234B269C51D1D5 /* Shared */,
@@ -137,6 +179,26 @@
 			productReference = BFC707A771F046F7929CCEDC /* RabbitEars.app */;
 			productType = "com.apple.product-type.application";
 		};
+		E1A0000000000000000000A4 /* RabbitEars TopShelf */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E1A0000000000000000000AB /* Build configuration list for PBXNativeTarget "RabbitEars TopShelf" */;
+			buildPhases = (
+				E1A0000000000000000000A8 /* Sources */,
+				E1A0000000000000000000A7 /* Frameworks */,
+				E1A0000000000000000000A9 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				E1A0000000000000000000A6 /* TopShelf */,
+			);
+			name = "RabbitEars TopShelf";
+			productName = RabbitEarsTopShelf;
+			productReference = E1A0000000000000000000A2 /* RabbitEarsTopShelf.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -151,6 +213,9 @@
 						CreatedOnToolsVersion = 27.1;
 					};
 					1A534A8DCEB94D7D9CAFBB9E = {
+						CreatedOnToolsVersion = 27.1;
+					};
+					E1A0000000000000000000A4 = {
 						CreatedOnToolsVersion = 27.1;
 					};
 				};
@@ -175,11 +240,17 @@
 			targets = (
 				167DFAAF3092CB5400B894BB /* RabbitEars */,
 				1A534A8DCEB94D7D9CAFBB9E /* RabbitEars iOS */,
+				E1A0000000000000000000A4 /* RabbitEars TopShelf */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		E1A0000000000000000000A9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 		167DFAAE3092CB5400B894BB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
@@ -193,6 +264,11 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		E1A0000000000000000000A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		167DFAAC3092CB5400B894BB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -204,6 +280,14 @@
 			);
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E1A0000000000000000000AA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E1A0000000000000000000A4 /* RabbitEars TopShelf */;
+			targetProxy = E1A0000000000000000000A3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		167DFAB93092CB5500B894BB /* Debug configuration for PBXProject "RabbitEars" */ = {
@@ -332,6 +416,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = RabbitEars.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = SUAR2Y8CJ4;
@@ -362,6 +447,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = RabbitEars.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = SUAR2Y8CJ4;
@@ -459,6 +545,58 @@
 			};
 			name = Debug;
 		};
+		E1A0000000000000000000AC /* Debug configuration for PBXNativeTarget "RabbitEars TopShelf" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = TopShelf.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SUAR2Y8CJ4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "TopShelf-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Rabbit Ears";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.RabbitEars.TopShelf";
+				PRODUCT_NAME = RabbitEarsTopShelf;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Debug;
+		};
+		E1A0000000000000000000AD /* Release configuration for PBXNativeTarget "RabbitEars TopShelf" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = TopShelf.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SUAR2Y8CJ4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "TopShelf-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Rabbit Ears";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "site.kirsch.RabbitEars.TopShelf";
+				PRODUCT_NAME = RabbitEarsTopShelf;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -483,6 +621,14 @@
 			buildConfigurations = (
 				D5E6F0B1806241208D048D07 /* Debug configuration for PBXNativeTarget "RabbitEars iOS" */,
 				B1767D3B866B459E8F3344CC /* Release configuration for PBXNativeTarget "RabbitEars iOS" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		E1A0000000000000000000AB /* Build configuration list for PBXNativeTarget "RabbitEars TopShelf" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E1A0000000000000000000AC /* Debug configuration for PBXNativeTarget "RabbitEars TopShelf" */,
+				E1A0000000000000000000AD /* Release configuration for PBXNativeTarget "RabbitEars TopShelf" */,
 			);
 			defaultConfigurationName = Release;
 		};

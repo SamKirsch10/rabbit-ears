@@ -5,6 +5,7 @@ struct SettingsView: View {
     let onClose: () -> Void
 
     @AppStorage("tvhServerURL") private var serverURL = ""
+    @StateObject private var topShelfFilter = GuideFilter(defaultsKey: TopShelfPublisher.tagsKey)
     @AppStorage(CaptionSettings.sizeKey) private var size = 0
     @AppStorage(CaptionSettings.colorKey) private var color = 0
     @AppStorage(CaptionSettings.backgroundKey) private var background = 0
@@ -23,6 +24,24 @@ struct SettingsView: View {
                             Text(serverURL).foregroundColor(.secondary).lineLimit(1)
                         }
                     }
+                }
+
+                Section {
+                    NavigationLink {
+                        TopShelfFilterView(filter: topShelfFilter)
+                    } label: {
+                        HStack {
+                            Text("Channels")
+                            Spacer()
+                            let count = topShelfFilter.selected.count
+                            Text(count == 0 ? "All" : "\(count) \(count == 1 ? "group" : "groups")")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Top Shelf")
+                } footer: {
+                    Text("Which channels get a tile above the app when it's in the top row of the Home Screen.")
                 }
 
                 Section {
@@ -66,6 +85,24 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, minHeight: 90)
             .background(Color(white: 0.25))
             .cornerRadius(10)
+    }
+}
+
+/// The channel groups the Top Shelf is limited to; the same picker as the guide's filter, with its own
+/// selection.
+private struct TopShelfFilterView: View {
+    @ObservedObject var filter: GuideFilter
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        GuideFilterSheet(filter: filter, title: "Top Shelf channels", scope: "the Top Shelf") { dismiss() }
+            .onAppear {
+                let client = TVHClient.sharedInstance
+                client.reloadConfiguration()
+                client.fetchChannelTags { result in
+                    if case .success(let tags) = result { filter.setTags(tags) }
+                }
+            }
     }
 }
 

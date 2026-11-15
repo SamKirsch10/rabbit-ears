@@ -4,13 +4,16 @@ import SwiftUI
 /// Tag picker shown from the toolbar's filter button.
 struct GuideFilterSheet: View {
     @ObservedObject var filter: GuideFilter
+    var title = "Filter channels"
+    /// What selecting groups narrows, for the hint under the title.
+    var scope = "the guide"
     let onClose: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("Filter channels")
+            Text(title)
                 .font(.title2.weight(.bold))
-            Text(filter.isActive ? "Showing channels in any selected group." : "Showing all channels. Select groups to narrow the guide.")
+            Text(filter.isActive ? "Showing channels in any selected group." : "Showing all channels. Select groups to narrow \(scope).")
                 .font(.callout)
                 .foregroundColor(.white.opacity(0.6))
 

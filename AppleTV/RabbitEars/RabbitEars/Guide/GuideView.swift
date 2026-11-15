@@ -20,6 +20,7 @@ private struct ProgramChoice {
 
 struct GuideView: View {
     @ObservedObject var filter: GuideFilter
+    @ObservedObject private var deepLinks = DeepLinkRouter.shared
     private let client = TVHClient.sharedInstance
     // Rounded down to the current or previous half hour, as a TV guide normally starts.
     // State, not a constant: it must move forward as time passes or after the app
@@ -277,6 +278,25 @@ struct GuideView: View {
         .onChange(of: focusedCellID) { _, newValue in
             updateHero(for: newValue)
         }
+        .onChange(of: deepLinks.liveChannelID) { _, _ in
+            openDeepLink()
+        }
+    }
+
+    /// Opens the channel a Top Shelf tile asked for, once the channel list has it; load() calls this
+    /// again after a cold launch.
+    private func openDeepLink() {
+        guard let channelID = deepLinks.liveChannelID,
+              let channel = channels.first(where: { $0.id == channelID }) else { return }
+        deepLinks.liveChannelID = nil
+        guard selectedChannel?.id != channelID else { return }
+        if selectedChannel == nil {
+            watchLive(channel)
+        } else {
+            // Watching another channel: back out of it first so the player is rebuilt for the new one.
+            selectedChannel = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { watchLive(channel) }
+        }
     }
 
     private func watchLive(_ channel: Channel, recording: DVR.Entry? = nil, fromStart: Bool = false) {
@@ -480,6 +500,7 @@ struct GuideView: View {
                 (Double($0.number ?? "") ?? .greatestFiniteMagnitude) < (Double($1.number ?? "") ?? .greatestFiniteMagnitude)
             }
             eventsByChannel = Dictionary(grouping: fetchedEvents, by: \.channelUuid)
+            openDeepLink()
             if !silent, let firstChannel = visibleChannels.first, let firstSegment = segments(for: firstChannel).first {
                 let id = "\(firstChannel.id)|\(firstSegment.id)"
                 heroChannel = firstChannel

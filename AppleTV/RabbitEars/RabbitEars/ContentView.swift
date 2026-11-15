@@ -6,6 +6,8 @@ struct ContentView: View {
     @AppStorage("tvhUsername") private var username: String = ""
     @State private var showingSettings = false
     @State private var showingFilter = false
+    @State private var showingDVR = false
+    @ObservedObject private var deepLinks = DeepLinkRouter.shared
     @StateObject private var filter = GuideFilter()
 
     var body: some View {
@@ -27,8 +29,8 @@ struct ContentView: View {
                         }
                     }
                     ToolbarItem {
-                        NavigationLink("DVR") {
-                            DVRListView()
+                        NavigationLink(destination: DVRListView(), isActive: $showingDVR) {
+                            Text("DVR")
                         }
                     }
                     ToolbarItem {
@@ -45,6 +47,13 @@ struct ContentView: View {
                 SettingsView {
                     showingSettings = false
                 }
+            }
+            .onChange(of: deepLinks.liveChannelID) { _, channelID in
+                // Opened from the Top Shelf: get back to the guide, which opens the channel.
+                guard channelID != nil else { return }
+                showingSettings = false
+                showingFilter = false
+                showingDVR = false
             }
         }
     }

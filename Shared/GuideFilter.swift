@@ -2,16 +2,17 @@
 import SwiftUI
 import Combine
 
-/// Which channel tags the guide is filtered to. Empty selection = show all.
-/// Shared between the toolbar button and the guide itself.
+/// Which channel tags the guide (or, with its own key, the tvOS Top Shelf) is filtered to. Empty
+/// selection = show all. Shared between the toolbar button and the guide itself.
 final class GuideFilter: ObservableObject {
     @Published private(set) var tags: [ChannelTag] = []
     @Published private(set) var selected: Set<String>
 
-    private static let defaultsKey = "guideSelectedTags"
+    private let defaultsKey: String
 
-    init() {
-        let saved = UserDefaults.standard.stringArray(forKey: Self.defaultsKey) ?? []
+    init(defaultsKey: String = "guideSelectedTags") {
+        self.defaultsKey = defaultsKey
+        let saved = UserDefaults.standard.stringArray(forKey: defaultsKey) ?? []
         selected = Set(saved)
     }
 
@@ -41,6 +42,6 @@ final class GuideFilter: ObservableObject {
     }
 
     private func persist() {
-        UserDefaults.standard.set(Array(selected), forKey: Self.defaultsKey)
+        UserDefaults.standard.set(Array(selected), forKey: defaultsKey)
     }
 }
