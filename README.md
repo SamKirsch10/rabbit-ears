@@ -10,7 +10,7 @@ A native Apple TV app (with an iPhone/iPad companion) for watching and recording
 #### Live View
 <img src="assets/live.png" alt="Live TV" width="70%">
 
-#### Top Shef Tiles
+#### Top Shelf Tiles
 <img src="assets/top-shelf.png" alt="Top Shelf" width="70%">
 
 ### iPhone
